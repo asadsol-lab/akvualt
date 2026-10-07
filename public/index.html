@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vault Master Admin • Cloud Recording & System Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Auth Overlay / Sign-in -->
+  <div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+      <div class="auth-badge">ENTERPRISE CLOUD ADMIN</div>
+      <div class="auth-icon-wrapper">
+        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+      </div>
+      <h2>Stealth Vault Admin Portal</h2>
+      <p class="auth-subtitle">Authorized administration system for guest recordings, Firebase free-tier storage reclamation, user entitlements, and audit telemetry.</p>
+      
+      <!-- Google Sign In Only -->
+      <div class="auth-google-box" style="margin-top: 24px;">
+        <button type="button" id="googleLoginBtn" class="btn btn-primary btn-block" style="display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 1.05rem; font-weight: 600; padding: 14px; background: #2563eb; border-radius: 8px;">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/></svg>
+          Sign In with Google
+        </button>
+        <p style="font-size: 0.8rem; color: #94a3b8; text-align: center; margin-top: 14px; line-height: 1.4;">
+          🔒 Strictly protected. Authorized access only for Master Admin Google account (<code>king.khan648k@gmail.com</code>).
+        </p>
+      </div>
+
+      <p id="authError" class="auth-error hidden"></p>
+    </div>
+  </div>
+
+  <!-- Mobile Sidebar Backdrop Overlay -->
+  <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+  <!-- Main Application Wrapper -->
+  <div id="dashboardApp" class="app-layout hidden">
+    <!-- Mobile Topbar Header (Visible on Mobile/Tablet) -->
+    <div class="mobile-topbar">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button id="mobileMenuToggleBtn" class="mobile-hamburger-btn" aria-label="Toggle Navigation Menu">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+        <div class="brand-badge" style="font-size: 0.95rem;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          <span>VAULT ADMIN</span>
+        </div>
+      </div>
+      <button id="mobileRefreshBtn" class="btn btn-secondary btn-sm" style="padding: 6px 10px; display: flex; align-items: center; gap: 4px;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        Sync
+      </button>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="mainSidebar">
+      <div class="sidebar-header">
+        <div class="brand-badge">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          <span>VAULT ADMIN</span>
+        </div>
+        <div class="project-info">sleathcam1</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="tab-dashboard">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-tab="tab-recordings">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+          <span>Guest Recordings</span>
+          <span class="nav-badge" id="sidebarRecordingsBadge">0</span>
+        </button>
+        <button class="nav-item" data-tab="tab-users">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span>User Management</span>
+        </button>
+        <button class="nav-item" data-tab="tab-licenses">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="M21 2l-9.6 9.6"></path><path d="M15.5 7.5l3 3L22 7l-3-3"></path></svg>
+          <span>License Keys</span>
+          <span class="nav-badge" id="sidebarLicensesBadge">0</span>
+        </button>
+        <button class="nav-item" data-tab="tab-shadow-archive">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"></path><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path><path d="M12 7v5l4 2"></path></svg>
+          <span>Shadow Archive (15-Day)</span>
+          <span class="nav-badge" id="sidebarShadowBadge" style="background: #f59e0b; color: #000;">0</span>
+        </button>
+        <button class="nav-item" data-tab="tab-storage">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <span>Storage & Quota</span>
+        </button>
+        <button class="nav-item" data-tab="tab-audit">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>Audit Logs</span>
+        </button>
+        <button class="nav-item" data-tab="tab-app-updates">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span>App Updates</span>
+          <span class="nav-badge" id="sidebarUpdateBadge" style="background: #2563eb; color: #fff;">Live</span>
+        </button>
+        <button class="nav-item" data-tab="tab-settings">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <span>System Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="admin-profile">
+          <div class="admin-avatar">AD</div>
+          <div class="admin-details">
+            <span class="admin-name" id="sidebarAdminName">king.khan648k@gmail.com</span>
+            <span class="admin-role">Super Administrator</span>
+          </div>
+        </div>
+        <button id="logoutBtn" class="btn btn-ghost btn-sm" title="Sign Out">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-title">
+          <h2 id="pageTitle">Dashboard Overview</h2>
+          <span class="sub-text">Real-time status of Firebase Firestore & Storage</span>
+        </div>
+        <div class="topbar-actions">
+          <button id="refreshDataBtn" class="btn btn-secondary">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            Sync Cloud
+          </button>
+        </div>
+      </header>
+
+      <!-- TAB 1: DASHBOARD -->
+      <div id="tab-dashboard" class="tab-pane active">
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon icon-blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Total Cloud Recordings</span>
+              <span class="stat-number" id="dashTotalRecordings">0</span>
+              <span class="stat-hint">Active in Firestore</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon icon-purple">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Cloud Storage Consumed</span>
+              <span class="stat-number" id="dashStorageUsed">0 MB</span>
+              <span class="stat-hint" id="dashStorageDetail">of 5.0 GB Free Tier</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon icon-orange">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Active Guest Devices</span>
+              <span class="stat-number" id="dashActiveDevices">0</span>
+              <span class="stat-hint">Anonymous 10-quota devices</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon icon-green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Registered Accounts</span>
+              <span class="stat-number" id="dashTotalUsers">0</span>
+              <span class="stat-hint">Email / Auth accounts</span>
+            </div>
+          </div>
+
+          <div class="stat-card" style="border: 1px solid rgba(234, 179, 8, 0.3); background: linear-gradient(135deg, rgba(234,179,8,0.08) 0%, rgba(15,23,42,0.6) 100%);">
+            <div class="stat-icon" style="background: linear-gradient(135deg, rgba(234,179,8,0.25), rgba(234,179,8,0.1)); color: #eab308;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label" style="color: #eab308;">💎 Premium Users</span>
+              <span class="stat-number" id="dashPremiumUsers" style="color: #eab308;">0</span>
+              <span class="stat-hint">Active VIP subscribers</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Storage Quota Gauge Card -->
+        <div class="card card-margin">
+          <div class="card-header">
+            <div>
+              <h3>Firebase Cloud Storage Free Tier (5 GB Max)</h3>
+              <p class="card-subtitle">Enforce free-tier safety by monitoring consumption and purging orphaned guest videos.</p>
+            </div>
+            <button id="quickPurgeBtn" class="btn btn-danger btn-sm">Free All Guest Space</button>
+          </div>
+          <div class="quota-meter">
+            <div class="quota-meter-bar">
+              <div id="dashQuotaProgress" class="quota-meter-fill" style="width: 0%;"></div>
+            </div>
+            <div class="quota-meter-labels">
+              <span id="dashQuotaPercent">0% Used</span>
+              <span id="dashQuotaRemaining">5.00 GB Free Space Remaining</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Uploads Table -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Recent Cloud Video Uploads</h3>
+            <button class="btn btn-secondary btn-sm" onclick="document.querySelector('[data-tab=tab-recordings]').click()">View All Recordings</button>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>File Name</th>
+                  <th>Owner / Reference</th>
+                  <th>Size</th>
+                  <th>Duration</th>
+                  <th>Uploaded At</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="dashRecentTableBody">
+                <tr><td colspan="6" class="loading-state">Loading latest cloud recordings...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: GUEST RECORDINGS -->
+      <div id="tab-recordings" class="tab-pane">
+        <div class="toolbar">
+          <div class="search-input-wrap">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="recSearchInput" placeholder="Search by file name, device model, or ID..." />
+          </div>
+
+          <div class="filter-group">
+            <select id="recOwnerFilter" class="select-control">
+              <option value="ALL">All Owners</option>
+              <option value="GUEST">Guest Only</option>
+              <option value="AUTHENTICATED">Registered Only</option>
+            </select>
+          </div>
+
+          <div class="toolbar-actions">
+            <button id="recDeleteSelectedBtn" class="btn btn-warning" disabled>
+              Delete Selected (<span id="recSelectedCount">0</span>)
+            </button>
+            <button id="recPurgeAllBtn" class="btn btn-danger">
+              Free All Space (Delete All)
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 40px;"><input type="checkbox" id="recSelectAllCheckbox" /></th>
+                  <th>Recording Details</th>
+                  <th>Owner / Anonymous UID</th>
+                  <th>Size</th>
+                  <th>Duration</th>
+                  <th>Uploaded At</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="recordingsTableBody">
+                <tr><td colspan="7" class="loading-state">Connecting to sleathcam1 Firestore...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: USER MANAGEMENT -->
+      <div id="tab-users" class="tab-pane">
+        <div class="toolbar">
+          <div class="search-input-wrap">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="userSearchInput" placeholder="Search users by email or UID..." />
+          </div>
+          <button id="refreshUsersBtn" class="btn btn-secondary">Sync Users</button>
+        </div>
+
+        <div class="card">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>User / Email</th>
+                  <th>UID Reference</th>
+                  <th>Membership Tier</th>
+                  <th>Account Status</th>
+                  <th>Created Date</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody">
+                <tr><td colspan="6" class="loading-state">Loading registered accounts...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: LICENSE KEYS (NO GMAIL PREMIUM) -->
+      <div id="tab-licenses" class="tab-pane">
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon icon-blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="M21 2l-9.6 9.6"></path><path d="M15.5 7.5l3 3L22 7l-3-3"></path></svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Total Generated Keys</span>
+              <span class="stat-number" id="licTotalKeys">0</span>
+              <span class="stat-hint">In Firestore database</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Active Redeemed Keys</span>
+              <span class="stat-number" id="licActiveKeys">0</span>
+              <span class="stat-hint">Active on user devices</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-orange">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Available / Unredeemed</span>
+              <span class="stat-number" id="licAvailableKeys">0</span>
+              <span class="stat-hint">Ready to sell/distribute</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Generate Key Card -->
+        <div class="card card-margin">
+          <div class="card-header">
+            <div>
+              <h3>Generate New Premium License Key</h3>
+              <p class="card-subtitle">Generate activation codes to sell via WhatsApp, EasyPaisa, Cash, or Bank Transfer (No Google Account Required).</p>
+            </div>
+          </div>
+
+          <!-- Newly Generated Key Alert (Hidden by default) -->
+          <div id="newKeyAlert" class="key-banner hidden">
+            <div>
+              <span style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Generated Activation Code</span>
+              <div id="newKeyCodeText" class="key-code-display">VAULT-LIFE-XXXX</div>
+              <span id="newKeyPlanText" style="font-size: 0.82rem; color: #34d399;">Lifetime Premium Access</span>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button id="btnCopyKey" class="btn btn-primary btn-sm">Copy Code</button>
+              <button id="btnCopyWhatsAppMsg" class="btn btn-secondary btn-sm">Copy WhatsApp Text</button>
+            </div>
+          </div>
+
+          <form id="generateKeyForm">
+            <div class="grid-form">
+              <div class="form-group">
+                <label for="keyPlanSelect">Subscription Plan Duration</label>
+                <select id="keyPlanSelect" class="input-control">
+                  <option value="LIFETIME">Lifetime Premium (Permanent / Unlimited)</option>
+                  <option value="YEARLY">Yearly Subscription (365 Days)</option>
+                  <option value="MONTHLY">Monthly Subscription (30 Days)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="keyCustomerInput">Customer Note / Phone / Name (Optional)</label>
+                <input type="text" id="keyCustomerInput" class="input-control" placeholder="e.g. WhatsApp +923001234567 (Asad)" />
+              </div>
+            </div>
+            <button type="submit" id="btnGenerateKey" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="M21 2l-9.6 9.6"></path><path d="M15.5 7.5l3 3L22 7l-3-3"></path></svg>
+              Generate Activation Code
+            </button>
+          </form>
+        </div>
+
+        <!-- License Keys Table -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Issued License Keys</h3>
+            <button id="refreshKeysBtn" class="btn btn-secondary btn-sm">Refresh Keys</button>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>License Key</th>
+                  <th>Plan Duration</th>
+                  <th>Status</th>
+                  <th>Customer Note</th>
+                  <th>Redeemed By Device / UID</th>
+                  <th>Expiry Date</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="licenseKeysTableBody">
+                <tr><td colspan="7" class="loading-state">Loading license keys...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: 15-DAY SHADOW ARCHIVE & DELETED MEDIA RECOVERY -->
+      <div id="tab-shadow-archive" class="tab-pane">
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon icon-orange">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"></path><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path><path d="M12 7v5l4 2"></path></svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Shadow Archived Files</span>
+              <span class="stat-number" id="shadowTotalFiles">0</span>
+              <span class="stat-hint">Deleted by users (held 15 days)</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-purple">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Archived Cloud Size</span>
+              <span class="stat-number" id="shadowTotalSize">0 MB</span>
+              <span class="stat-hint">Cloudinary & Firebase assets</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+            </div>
+            <div class="stat-content">
+              <span class="stat-label">Users With Archived Data</span>
+              <span class="stat-number" id="shadowUsersCount">0</span>
+              <span class="stat-hint">Potential recovery sales</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Info & Explainer Card -->
+        <div class="card card-margin" style="border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.05);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h4 style="margin: 0; color: #f59e0b; display: flex; align-items: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                15-Day Premium Recovery Business System
+              </h4>
+              <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94a3b8;">
+                When users "permanently delete" photos or videos, local device files are erased, but cloud assets remain stored in this Shadow Archive for 15 days. Premium users can run up to 2 recovery operations, or Admin can instantly restore files for customers upon payment.
+              </p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button id="refreshShadowBtn" class="btn btn-secondary btn-sm">Refresh Shadow Archive</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shadow Archive Table Card -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>Shadow Archived Assets (Pending Recovery)</h3>
+              <p class="card-subtitle">Showing all files soft-deleted by users that remain recoverable.</p>
+            </div>
+            <input type="text" id="shadowSearchInput" class="input-control" placeholder="Search by file name or User UID..." style="max-width: 280px;" />
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>File Name</th>
+                  <th>Owner / User UID</th>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th>Deleted Date</th>
+                  <th>Archive Retention</th>
+                  <th style="text-align: right;">Admin Actions</th>
+                </tr>
+              </thead>
+              <tbody id="shadowTableBody">
+                <tr><td colspan="7" class="loading-state">Loading shadow archive assets...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: STORAGE & QUOTA -->
+      <div id="tab-storage" class="tab-pane">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon icon-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+            <div class="stat-content">
+              <span class="stat-label">Current Storage Used</span>
+              <span class="stat-number" id="storageUsedDisplay">0 MB</span>
+              <span class="stat-hint">Across all MP4 assets</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon icon-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"></path></svg></div>
+            <div class="stat-content">
+              <span class="stat-label">Available Free Space</span>
+              <span class="stat-number" id="storageFreeDisplay">5.00 GB</span>
+              <span class="stat-hint">Remaining in free tier</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Limits Remote Config Card -->
+        <div class="card card-margin">
+          <div class="card-header">
+            <div>
+              <h3>Dynamic Cloud Quota & Limits (Remote Config)</h3>
+              <p class="card-subtitle">Manage free & premium tier limits on the fly. Applies immediately to all Android devices without an app update.</p>
+            </div>
+            <span class="badge badge-success">Live Firestore Config</span>
+          </div>
+          <form id="dynamicLimitsForm">
+            <div class="grid-form">
+              <div class="form-group">
+                <label for="limitFreeRecordings">Free Tier Max Cloud Recordings</label>
+                <input type="number" id="limitFreeRecordings" class="input-control" value="5" min="1" max="100" />
+                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Default: 5 recordings (prompts premium or deletion after 5)</small>
+              </div>
+              <div class="form-group">
+                <label for="limitFreeLengthMins">Free Tier Max Video Length (Minutes)</label>
+                <input type="number" id="limitFreeLengthMins" class="input-control" value="10" min="1" max="1000" />
+                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Default: 10 minutes</small>
+              </div>
+              <div class="form-group">
+                <label for="limitPremiumRecordings">Premium Tier Max Cloud Recordings</label>
+                <input type="number" id="limitPremiumRecordings" class="input-control" value="1000" min="1" max="10000" />
+                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Default: 1000 recordings for premium</small>
+              </div>
+              <div class="form-group">
+                <label for="limitPremiumLengthMins">Premium Tier Max Video Length (Minutes)</label>
+                <input type="number" id="limitPremiumLengthMins" class="input-control" value="60" min="1" max="1000" />
+                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Default: 60 minutes for premium</small>
+              </div>
+            </div>
+            <button type="submit" id="btnSaveLimits" class="btn btn-primary">
+              Save & Sync Quota Policies to Cloud
+            </button>
+          </form>
+        </div>
+
+        <div class="card card-margin">
+          <div class="card-header">
+            <h3>Automated Free-Tier Cleanup Tools</h3>
+            <span class="badge badge-warning">Zero-Cost Policy Protection</span>
+          </div>
+          <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 16px;">
+            To ensure Firebase Cloud Storage never incurs unintended charges, run automated cleanup jobs on guest recordings:
+          </p>
+          <div class="cleanup-tools-grid">
+            <div class="tool-box">
+              <h4>Clean Oldest Guest Recordings</h4>
+              <p>Permanently deletes the 10 oldest uploaded recordings from guest devices.</p>
+              <button id="cleanOldestBtn" class="btn btn-warning btn-sm">Clean 10 Oldest Files</button>
+            </div>
+            <div class="tool-box">
+              <h4>Clean Largest Videos</h4>
+              <p>Identifies and removes videos exceeding 50 MB to quickly recover gigabytes.</p>
+              <button id="cleanLargestBtn" class="btn btn-warning btn-sm">Clean Large Recordings</button>
+            </div>
+            <div class="tool-box danger">
+              <h4>Purge All Guest Videos</h4>
+              <p>Reclaims 100% of guest storage space and resets all 10-quota guest limits.</p>
+              <button id="cleanAllGuestBtn" class="btn btn-danger btn-sm">Purge All Guest Space</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: AUDIT LOGS -->
+      <div id="tab-audit" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h3>Administrative Action & Security Logs</h3>
+            <button id="refreshAuditBtn" class="btn btn-secondary btn-sm">Refresh Logs</button>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Admin Identity</th>
+                  <th>Action Type</th>
+                  <th>Target Resource</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="auditTableBody">
+                <tr><td colspan="5" class="loading-state">Loading audit logs...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 6: SETTINGS -->
+      <div id="tab-settings" class="tab-pane">
+        <div class="card card-margin">
+          <div class="card-header">
+            <h3>Super Administrator Configuration</h3>
+            <span class="badge badge-success">Verified Active</span>
+          </div>
+          <div class="settings-list">
+            <div class="settings-item">
+              <div>
+                <strong>Primary Admin Email</strong>
+                <p>Authorized for custom claims and unrestricted cloud deletion.</p>
+              </div>
+              <code class="code-pill">king.khan648k@gmail.com</code>
+            </div>
+            <div class="settings-item">
+              <div>
+                <strong>Firebase Storage Bucket</strong>
+                <p>Google Cloud Storage endpoint for guest & user recordings.</p>
+              </div>
+              <code class="code-pill">sleathcam1.firebasestorage.app</code>
+            </div>
+            <div class="settings-item">
+              <div>
+                <strong>Guest Cloud Quota Policy</strong>
+                <p>Default free-tier cloud recordings limit per unauthenticated device.</p>
+              </div>
+              <code class="code-pill">5 Recordings / 500 MB</code>
+            </div>
+          </div>
+        </div>
+
+        <!-- Master Security PIN & Admin Access Control -->
+        <div class="card card-margin">
+          <div class="card-header">
+            <div>
+              <h3>Master Security PIN & Access Control</h3>
+              <p class="card-subtitle">Change your admin portal security PIN or disable PIN login completely so only authorized Google / Email sign-in is allowed.</p>
+            </div>
+            <span id="pinStatusBadge" class="badge badge-primary">Master PIN Active</span>
+          </div>
+
+          <form id="masterPinConfigForm">
+            <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(148, 163, 184, 0.2); padding: 18px; border-radius: 12px; margin-bottom: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; color: #f8fafc;">
+                  <input type="checkbox" id="pinLoginEnabledCheckbox" checked style="width: 18px; height: 18px; cursor: pointer;" />
+                  <span>Allow Quick PIN Login on Auth Screen</span>
+                </label>
+                <span style="font-size: 0.8rem; color: #94a3b8;">(Uncheck to enforce Email/Password login only)</span>
+              </div>
+
+              <div class="grid-form">
+                <div class="form-group">
+                  <label for="newMasterPinInput">New Master PIN / Passcode</label>
+                  <input type="password" id="newMasterPinInput" class="input-control" placeholder="Enter new secret PIN (e.g. 849201)" autocomplete="new-password" />
+                </div>
+                <div class="form-group">
+                  <label for="confirmMasterPinInput">Confirm New PIN</label>
+                  <input type="password" id="confirmMasterPinInput" class="input-control" placeholder="Confirm your new PIN" autocomplete="new-password" />
+                </div>
+              </div>
+              <p style="font-size: 0.8rem; color: #94a3b8; margin-top: 10px; margin-bottom: 0;">
+                💡 <em>Security Note: Your PIN is securely encrypted using SHA-256 before saving to Firebase. The old default "1234" will stop working immediately once you save your custom PIN.</em>
+              </p>
+            </div>
+
+            <button type="submit" id="btnSaveMasterPin" class="btn btn-primary" style="width: 100%;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              Save & Lock with New Master PIN
+            </button>
+          </form>
+        </div>
+
+        <!-- Multi-Account Cloudinary Configuration Pool (5 Accounts) -->
+        <div class="card card-margin">
+          <div class="card-header">
+            <div>
+              <h3>Dynamic Cloudinary Multi-Account Pool (Up to 5 Accounts)</h3>
+              <p class="card-subtitle">Add up to 5 Cloudinary accounts & presets. The Android app automatically rotates and fails over between them, ensuring 100% uninterrupted zero-error uploads and downloads for all users!</p>
+            </div>
+            <span class="badge badge-success">5 Account Auto-Failover</span>
+          </div>
+
+          <form id="cloudinaryConfigForm">
+            <div id="cloudinaryAccountsContainer">
+              <!-- Account 1 -->
+              <div class="card card-margin" style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(148, 163, 184, 0.2); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <h4 style="color: #38bdf8; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <span style="background: #0284c7; color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">1</span>
+                    Account 1 (Primary)
+                  </h4>
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: #94a3b8; font-size: 0.85rem;">
+                    <input type="checkbox" id="cld_enabled_0" checked /> Enabled / Active
+                  </label>
+                </div>
+                <div class="grid-form">
+                  <div class="form-group">
+                    <label for="cld_cloudName_0">Cloud Name *</label>
+                    <input type="text" id="cld_cloudName_0" class="input-control" placeholder="e.g. dp7j6mtdb" />
+                  </div>
+                  <div class="form-group">
+                    <label for="cld_preset_0">Unsigned Upload Preset *</label>
+                    <input type="text" id="cld_preset_0" class="input-control" placeholder="e.g. vault_unsigned_preset" />
+                  </div>
+                  <div class="form-group">
+                    <label for="cld_label_0">Account Label (Optional)</label>
+                    <input type="text" id="cld_label_0" class="input-control" placeholder="e.g. Asad Main (25GB)" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Account 2 -->
+              <div class="card card-margin" style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(148, 163, 184, 0.2); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <h4 style="color: #38bdf8; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <span style="background: #0284c7; color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">2</span>
+                    Account 2 (Backup Pool)
+                  </h4>
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: #94a3b8; font-size: 0.85rem;">
+                    <input type="checkbox" id="cld_enabled_1" /> Enabled / Active
+                  </label>
+                </div>
+                <div class="grid-form">
+                  <div class="form-group">
+                    <label for="cld_cloudName_1">Cloud Name</label>
+                    <input type="text" id="cld_cloudName_1" class="input-control" placeholder="e.g. vaultmedia2" />
+                  </div>
+                  <div class="form-group">
+                    <label for="cld_preset_1">Unsigned Upload Preset</label>
+                    <input type="text" id="cld_preset_1" class="input-control" placeholder="e.g. preset_acc2" />
+                  </div>
+                  <div class="form-group">
+                    <label for="cld_label_1">Account Label (Optional)</label>
+                    <input type="text" id="cld_label_1" class="input-control" placeholder="e.g. Backup Account 2 (25GB)" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Account 3 -->
+              <div class="card card-margin" style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(148, 163, 184, 0.2); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <h4 style="color: #38bdf8; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <span style="background: #0284c7; color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">3</span>
+                    Account 3 (Backup Pool)
+                  </h4>
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: #94a3b8; font-size: 0.85rem;">
+                    <input type="checkbox" id="cld_enabled_2" /> Enabled / Active
+                  </label>
+                </div>
+                <div class="grid-form">
+                  <div class="form-group">
+                    <label for="cld_cloudName_2">Cloud Name</label>
+                    <input type="text" id="cld_cloudName_2" class="input-control" placeholder="e.g. vaultmedia3" />
+                  </div>
+                  <div class="form-group">
+                    <label for="cld_preset_2">Unsigned Upload Preset</label>
+                    <input type="text" id="cld_preset_2" class="input-control" placeholder="e.g. preset_acc3" />
+                  </div>
+                  <div class="form-group">
+                    <label for="cld_label_2">Account Label (Optional)</label>
+                    <input type="text" id="cld_label_2" class="input-control" placeholder="e.g. Backup Account 3 (25GB)" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Account 4 -->
+              <div class="card card-margin" style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(148, 163, 184, 0.2); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <h4 style="color: #38bdf8; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <span style="background: #0284c7; color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">4</span>
+                    Account 4 (Backup Pool)
+                  </h4>
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: #94a3b8; font-size: 0.85rem;">
+                    <input type="checkbox" id="cld_enabled_3" /> Enabled / Active
+                  </label>
+                </div>
+                <div class="grid-form">
+                  <div class="form-group">
+                    <label for="cld_cloudName_3">Cloud Name</label>
+                    <input type="text" id="cld_cloudName_3" class="input-control" placeholder="e.g. vaultmedia4" />
+                  </div>
+                  <div class="form-group">
+                    <label for="cld_preset_3">Unsigned Upload Preset</label>
+                    <input type="text" id="cld_preset_3" class="input-control" placeholder="e.g. preset_acc4" />
+                  </div>
+                  <div class="form-group">
+                    <label for="cld_label_3">Account Label (Optional)</label>
+                    <input type="text" id="cld_label_3" class="input-control" placeholder="e.g. Backup Account 4 (25GB)" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Account 5 -->
+              <div class="card card-margin" style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(148, 163, 184, 0.2); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <h4 style="color: #38bdf8; margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <span style="background: #0284c7; color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">5</span>
+                    Account 5 (Backup Pool)
+                  </h4>
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: #94a3b8; font-size: 0.85rem;">
+                    <input type="checkbox" id="cld_enabled_4" /> Enabled / Active
+                  </label>
+                </div>
+                <div class="grid-form">
+                  <div class="form-group">
+                    <label for="cld_cloudName_4">Cloud Name</label>
+                    <input type="text" id="cld_cloudName_4" class="input-control" placeholder="e.g. vaultmedia5" />
+                  </div>
+                  <div class="form-group">
+                    <label for="cld_preset_4">Unsigned Upload Preset</label>
+                    <input type="text" id="cld_preset_4" class="input-control" placeholder="e.g. preset_acc5" />
+                  </div>
+                  <div class="form-group">
+                    <label for="cld_label_4">Account Label (Optional)</label>
+                    <input type="text" id="cld_label_4" class="input-control" placeholder="e.g. Backup Account 5 (25GB)" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" id="btnSaveCloudinary" class="btn btn-primary" style="margin-top: 10px; width: 100%;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+              Save 5-Account Cloudinary Pool to Cloud
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- TAB 7: APP UPDATES & RELEASES -->
+      <div id="tab-app-updates" class="tab-pane">
+        <!-- Live App Version Status Card -->
+        <div class="card card-margin">
+          <div class="card-header">
+            <div>
+              <h3>Live Android App Release Status</h3>
+              <p class="card-subtitle">Real-time update configuration served directly to all active app installations.</p>
+            </div>
+            <span id="updateLiveBadge" class="badge badge-success">Checking Server...</span>
+          </div>
+
+          <div class="settings-list">
+            <div class="settings-item">
+              <div>
+                <strong>Active Published Version</strong>
+                <p>Version currently broadcast to users.</p>
+              </div>
+              <div>
+                <span id="displayLiveVersion" class="badge badge-primary" style="font-size: 0.95rem; font-weight: 700;">v1.0.0</span>
+                <span id="displayLiveCode" style="color: #94a3b8; font-size: 0.85rem; margin-left: 8px;">(Code: 1)</span>
+              </div>
+            </div>
+
+            <div class="settings-item">
+              <div>
+                <strong>Update Type</strong>
+                <p>Whether users are required to update to continue using app.</p>
+              </div>
+              <span id="displayLiveMandatory" class="badge badge-warning">Optional</span>
+            </div>
+
+            <div class="settings-item">
+              <div>
+                <strong>APK Download Destination</strong>
+                <p>Direct download link delivered to user's phone.</p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; max-width: 50%;">
+                <code class="code-pill" id="displayLiveUrl" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px;">--</code>
+                <a id="btnTestLiveApk" href="#" target="_blank" class="btn btn-secondary btn-sm" style="display: none; white-space: nowrap;">🔗 Test Link</a>
+              </div>
+            </div>
+
+            <div class="settings-item">
+              <div>
+                <strong>Release Notes / What's New</strong>
+                <p>Changelog displayed in update dialog.</p>
+              </div>
+              <div id="displayLiveNotes" style="font-size: 0.85rem; color: #cbd5e1; max-width: 60%; white-space: pre-line; background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.15);">--</div>
+            </div>
+
+            <div class="settings-item">
+              <div>
+                <strong>Last Published Date</strong>
+                <p>Timestamp of last update publication.</p>
+              </div>
+              <span id="displayLiveDate" style="color: #94a3b8; font-size: 0.85rem;">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Publish New App Update Form -->
+        <div class="card card-margin">
+          <div class="card-header">
+            <div>
+              <h3>Publish New App Update Release</h3>
+              <p class="card-subtitle">Deploy a new version to all users immediately. When users open the app, they will receive an in-app update prompt with your download link.</p>
+            </div>
+            <span class="badge badge-primary">Instant Cloud Sync</span>
+          </div>
+
+          <form id="appUpdateReleaseForm">
+            <div class="grid-form">
+              <div class="form-group">
+                <label for="releaseVersionName">New Version Name *</label>
+                <input type="text" id="releaseVersionName" class="input-control" placeholder="e.g. 1.2.0" required />
+                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">The user-facing version name (e.g. 1.1.0, 1.2.0, 2.0.0)</small>
+              </div>
+
+              <div class="form-group">
+                <label for="releaseVersionCode">New Version Code (Number) *</label>
+                <input type="number" id="releaseVersionCode" class="input-control" placeholder="e.g. 2" min="1" required />
+                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Must be higher than previous version code (e.g. 2, 3, 4...)</small>
+              </div>
+
+              <div class="form-group">
+                <label for="releaseMinVersionCode">Minimum Supported Version Code</label>
+                <input type="number" id="releaseMinVersionCode" class="input-control" value="1" min="1" />
+                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Users below this version will be forced to update</small>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 14px;">
+              <label for="releaseApkUrl">Direct APK Download URL / Release Link *</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="url" id="releaseApkUrl" class="input-control" placeholder="https://github.com/.../app-release.apk or Google Drive / direct link" style="flex: 1;" required />
+                <button type="button" id="btnTestInputUrl" class="btn btn-secondary btn-sm" style="white-space: nowrap;">Test Link</button>
+              </div>
+              <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">When users tap "Update Now" in their app, this APK link will open.</small>
+            </div>
+
+            <div class="form-group" style="margin-top: 14px;">
+              <label for="releaseNotes">What's New / Release Changelog</label>
+              <textarea id="releaseNotes" class="input-control" rows="4" placeholder="• Added automatic background cloud backup&#10;• Faster file restore&#10;• Bug fixes and performance improvements"></textarea>
+            </div>
+
+            <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(148, 163, 184, 0.2); padding: 14px 16px; border-radius: 10px; margin: 16px 0; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <strong style="color: #f8fafc; font-size: 0.95rem;">Force Mandatory Update</strong>
+                <p style="color: #94a3b8; font-size: 0.8rem; margin: 2px 0 0 0;">If checked, users cannot skip the update dialog and must install this update to open the app.</p>
+              </div>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="releaseMandatoryCheck" style="width: 20px; height: 20px; cursor: pointer;" />
+                <span style="font-weight: 600; color: #f59e0b;">Mandatory</span>
+              </label>
+            </div>
+
+            <button type="submit" id="btnPublishAppUpdate" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Publish Update to All App Users
+            </button>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Video Playback Preview Modal -->
+  <div id="videoModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalVideoTitle">Recording Preview</h3>
+        <button id="modalCloseBtn" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <video id="videoPlayer" controls autoplay style="display: none;"></video>
+        <img id="imagePlayer" alt="Preview" style="display: none; width: 100%; max-height: 420px; object-fit: contain; border-radius: 8px; margin-bottom: 12px; background: #000;" />
+        <div class="video-meta-bar">
+          <span id="modalVideoSize">-- MB</span>
+          <span id="modalVideoDuration">-- sec</span>
+          <span id="modalVideoDevice">--</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <a id="modalDownloadBtn" class="btn btn-secondary" target="_blank" download>Download File</a>
+        <button id="modalDeleteBtn" class="btn btn-danger">Delete from Cloud</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Account Inspector Modal -->
+  <div id="userInspectorModal" class="modal-overlay hidden">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="stat-icon icon-blue" style="width: 36px; height: 36px; padding: 6px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          </div>
+          <div>
+            <h3 id="inspectUserEmail" style="font-size: 1.1rem; margin: 0;">User Account Inspector</h3>
+            <span id="inspectUserUid" class="code-pill" style="font-size: 0.75rem;">UID</span>
+          </div>
+        </div>
+        <button id="inspectUserCloseBtn" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body modal-body-scroll">
+        <!-- User Metadata Strip -->
+        <div class="user-info-strip">
+          <div class="user-info-item">
+            <span class="user-info-label">Membership Tier</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="inspectUserTierBadge" class="badge badge-guest">FREE TIER</span>
+              <button id="inspectBtnTogglePremium" class="btn btn-secondary btn-sm">Grant VIP</button>
+            </div>
+          </div>
+          <div class="user-info-item">
+            <span class="user-info-label">Account Status</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="inspectUserStatusBadge" class="badge badge-success">ACTIVE</span>
+              <button id="inspectBtnToggleBan" class="btn btn-danger btn-sm">Suspend</button>
+            </div>
+          </div>
+          <div class="user-info-item">
+            <span class="user-info-label">Total Media Files</span>
+            <span id="inspectUserMediaCount" class="user-info-val">0 Files</span>
+          </div>
+          <div class="user-info-item">
+            <span class="user-info-label">Total Storage Used</span>
+            <span id="inspectUserStorageUsed" class="user-info-val">0 MB</span>
+          </div>
+          <div class="user-info-item">
+            <span class="user-info-label">15-Day Recovery Runs</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="inspectUserRecoveryRuns" class="badge badge-primary">0 / 2 Used</span>
+              <button id="inspectBtnResetRecovery" class="btn btn-secondary btn-sm" title="Reset user recovery counter back to 0 runs used">Reset Runs</button>
+            </div>
+          </div>
+          <div id="instantRestorePassRow" class="user-info-item" style="display: none;">
+            <span class="user-info-label">⚡ Instant Restore Pass</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="instantRestorePassBadge" class="badge badge-guest">Not Granted</span>
+              <button id="inspectBtnGrantInstantRestore" class="btn btn-primary btn-sm">Grant Instant Restore</button>
+            </div>
+          </div>
+          <div class="user-info-item">
+            <span class="user-info-label">Registered Date</span>
+            <span id="inspectUserCreatedDate" class="user-info-val" style="font-size: 0.85rem;">--</span>
+          </div>
+        </div>
+
+        <!-- User Media Controls & Filters -->
+        <div class="inspect-controls">
+          <div class="inspect-filter-tabs">
+            <button id="inspectTabAll" class="inspect-filter-btn active" onclick="window.setInspectMediaFilter('ALL')">
+              All (<span id="inspectCountAll">0</span>)
+            </button>
+            <button id="inspectTabPhotos" class="inspect-filter-btn" onclick="window.setInspectMediaFilter('PHOTO')">
+              📸 Photos (<span id="inspectCountPhotos">0</span>)
+            </button>
+            <button id="inspectTabVideos" class="inspect-filter-btn" onclick="window.setInspectMediaFilter('VIDEO')">
+              🎬 Videos (<span id="inspectCountVideos">0</span>)
+            </button>
+            <button id="inspectTabArchive" class="inspect-filter-btn" onclick="window.setInspectMediaFilter('ARCHIVE')">
+              👻 Archive (<span id="inspectCountArchive">0</span>)
+            </button>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <input type="text" id="inspectMediaSearchInput" class="input-control" placeholder="Search user's files..." style="padding: 6px 12px; font-size: 0.8rem; width: 180px;" />
+            <div class="inspect-view-switcher">
+              <button id="inspectViewGridBtn" class="inspect-view-btn active" onclick="window.setInspectViewMode('GRID')" title="Visual Media Grid View">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                Grid
+              </button>
+              <button id="inspectViewTableBtn" class="inspect-view-btn" onclick="window.setInspectViewMode('TABLE')" title="Detailed List View">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                Table
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1. Visual Media Grid Container (Default) -->
+        <div id="inspectUserMediaGrid" class="inspect-media-grid">
+          <div class="loading-state" style="grid-column: 1 / -1;">Loading user media gallery...</div>
+        </div>
+
+        <!-- 2. Detailed Table Container -->
+        <div id="inspectUserMediaTableWrapper" class="table-responsive hidden" style="max-height: 420px; overflow-y: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">Preview</th>
+                <th>File Name & ID</th>
+                <th>Type</th>
+                <th>Size</th>
+                <th>Uploaded At</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="inspectUserMediaTableBody">
+              <tr><td colspan="6" class="loading-state">Loading user files...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <div style="display: flex; gap: 8px;">
+          <button id="inspectUserDeleteAllFilesBtn" class="btn btn-danger btn-sm" title="Permanently delete all media and cloud recordings of this user and reset quota">
+            🗑️ Delete All User Files & Free Quota
+          </button>
+          <button id="inspectUserDeleteAccountBtn" class="btn btn-danger btn-sm" style="background: #991b1b; border-color: #7f1d1d;" title="Permanently delete this user account and all data">
+            ⚠️ Delete User Account
+          </button>
+        </div>
+        <button id="inspectUserDoneBtn" class="btn btn-secondary">Close Inspector</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Confirmation Purge Modal -->
+  <div id="confirmPurgeModal" class="modal-overlay hidden">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <h3 style="color: #ef4444;">Confirm Storage Space Cleanup</h3>
+        <button id="confirmPurgeCloseBtn" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>This action will permanently delete <strong>all recordings</strong> from Firebase Cloud Storage and Firestore.</p>
+        <div class="notice-box">This will completely reset guest quotas and free up 100% of your cloud storage space.</div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelPurgeBtn" class="btn btn-ghost">Cancel</button>
+        <button id="executePurgeBtn" class="btn btn-danger">Yes, Delete All Recordings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- App Script -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
