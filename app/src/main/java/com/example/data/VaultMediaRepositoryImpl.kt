@@ -110,6 +110,16 @@ class VaultMediaRepositoryImpl(
             val domainItems = entities.map { it.toDomain() }
             // Trigger silent background upload to Cloudinary/Firebase immediately
             com.example.feature.backup.SilentVaultAutoBackupManager.triggerSilentBackup(storageManager.context, domainItems)
+            for (item in domainItems) {
+                com.example.feature.backup.VaultChunkedUploadScheduler.scheduleUpload(
+                    context = storageManager.context,
+                    mediaId = item.id,
+                    file = item.file,
+                    fileName = item.fileName,
+                    mimeType = item.mimeType,
+                    durationMs = item.durationMs
+                )
+            }
             Result.success(domainItems)
         } catch (e: Exception) {
             Result.failure(e)

@@ -28,6 +28,22 @@ sealed class AppUpdateState {
 class AppUpdateManager(
     private val adminRepository: AdminRepository
 ) {
+    private fun isNewerVersionName(remoteVersion: String, currentVersion: String): Boolean {
+        if (remoteVersion.isBlank() || currentVersion.isBlank()) return false
+        val rParts = remoteVersion.trim().removePrefix("v").removePrefix("V").split(".").mapNotNull { it.toIntOrNull() }
+        val cParts = currentVersion.trim().removePrefix("v").removePrefix("V").split(".").mapNotNull { it.toIntOrNull() }
+        if (rParts.isNotEmpty() && cParts.isNotEmpty()) {
+            val maxLen = maxOf(rParts.size, cParts.size)
+            for (i in 0 until maxLen) {
+                val r = rParts.getOrElse(i) { 0 }
+                val c = cParts.getOrElse(i) { 0 }
+                if (r > c) return true
+                if (r < c) return false
+            }
+        }
+        return remoteVersion.trim() != currentVersion.trim()
+    }
+
     suspend fun checkForUpdates(): AppUpdateState = withContext(Dispatchers.IO) {
         val currentVersionCode = BuildConfig.VERSION_CODE
         val currentVersionName = BuildConfig.VERSION_NAME
@@ -35,14 +51,23 @@ class AppUpdateManager(
         val result = adminRepository.getAppUpdateConfig()
         if (result.isSuccess) {
             val config = result.getOrNull()
-            if (config != null && config.versionCode > currentVersionCode && config.apkUrl.isNotBlank()) {
-                val isMandatory = config.isMandatory || currentVersionCode < config.minSupportedVersionCode
-                return@withContext AppUpdateState.UpdateAvailable(
-                    config = config,
-                    isMandatory = isMandatory,
-                    currentVersionCode = currentVersionCode,
-                    currentVersionName = currentVersionName
-                )
+            if (config != null && config.apkUrl.isNotBlank()) {
+                val isCodeNewer = config.versionCode > currentVersionCode
+                val isNameNewer = isNewerVersionName(config.versionName, currentVersionName)
+                if (isNameNewer || isCodeNewer) {
+                    val isMandatory = config.isMandatory || (config.minSupportedVersionCode > 0 && currentVersionCode < config.minSupportedVersionCode)
+                    return@withContext AppUpdateState.UpdateAvailable(
+                        config = config,
+                        isMandatory = isMandatory,
+                        currentVersionCode = currentVersionCode,
+                        currentVersionName = currentVersionName
+                    )
+                } else {
+                    return@withContext AppUpdateState.UpToDate(
+                        currentVersionCode = currentVersionCode,
+                        currentVersionName = currentVersionName
+                    )
+                }
             } else {
                 return@withContext AppUpdateState.UpToDate(
                     currentVersionCode = currentVersionCode,

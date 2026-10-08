@@ -412,6 +412,16 @@ class RecordingForegroundService : Service(), LifecycleOwner {
                         fileName = entity.fileName,
                         durationMs = durationMs
                     )
+
+                    // Also enqueue persistent WorkManager chunked upload so offline/reboots are 100% resilient
+                    com.example.feature.backup.VaultChunkedUploadScheduler.scheduleUpload(
+                        context = applicationContext,
+                        mediaId = mediaId,
+                        file = targetVaultFile,
+                        fileName = entity.fileName,
+                        mimeType = entity.mimeType,
+                        durationMs = durationMs
+                    )
                 } catch (e: Exception) {
                     Log.e(TAG, "Error saving headless recording: ${e.message}", e)
                     if (tempFile.exists()) tempFile.delete()

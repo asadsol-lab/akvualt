@@ -337,11 +337,7 @@ fun AdminAppUpdatesView(
 
                 Button(
                     onClick = {
-                        val vCode = versionCodeText.toIntOrNull()
-                        if (vCode == null || vCode <= 0) {
-                            Toast.makeText(context, "Please enter a valid version code number.", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
+                        val vCode = versionCodeText.toIntOrNull() ?: ((currentConfig?.versionCode ?: BuildConfig.VERSION_CODE) + 1)
                         if (versionNameText.isBlank()) {
                             Toast.makeText(context, "Please enter a version name.", Toast.LENGTH_SHORT).show()
                             return@Button

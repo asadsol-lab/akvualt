@@ -1,7 +1,8 @@
 // Firebase Web SDK v10 Modular Imports
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { 
-  getFirestore, 
+  getFirestore,
+  initializeFirestore, 
   collection, 
   getDocs,
   getDoc, 
@@ -12,8 +13,9 @@ import {
   serverTimestamp, 
   query, 
   orderBy, 
-  limit 
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  limit,
+  writeBatch
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 import { 
   getAuth, 
@@ -23,7 +25,7 @@ import {
   signInWithPopup, 
   signOut, 
   onAuthStateChanged 
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
 // Exact Firebase Web Configuration supplied by User
 const firebaseConfig = {
@@ -36,9 +38,12 @@ const firebaseConfig = {
   measurementId: "G-C3SB605T72"
 };
 
-// Initialize Firebase Services
+// Initialize Firebase Services with stable Long-Polling (prevents QUIC timeouts & stream errors)
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+  useFetchStreams: false
+});
 const auth = getAuth(app);
 
 // Constants
@@ -347,17 +352,21 @@ async function loadRecordings() {
       console.warn("Could not query cloud_recordings:", e);
     }
 
-    // 2. Also fetch from users/{uid}/vault_media and users/{uid}/recordings for registered users
+    // 2. Also fetch from users/{uid}/vault_media and users/{uid}/recordings for registered users (Parallelized)
     try {
       const usersSnap = await getDocs(collection(db, "users"));
-      for (const uDoc of usersSnap.docs) {
+      await Promise.all(usersSnap.docs.map(async (uDoc) => {
         const uData = uDoc.data();
         const uid = uDoc.id;
         const userEmail = uData.email || uData.displayName || uid.substring(0, 8);
 
-        // Fetch user's vault_media subcollection
-        try {
-          const mediaSnap = await getDocs(collection(db, "users", uid, "vault_media"));
+        // Fetch user's subcollections in parallel
+        const [mediaSnap, recSnap] = await Promise.all([
+          getDocs(collection(db, "users", uid, "vault_media")).catch(() => null),
+          getDocs(collection(db, "users", uid, "recordings")).catch(() => null)
+        ]);
+
+        if (mediaSnap) {
           mediaSnap.forEach((mDoc) => {
             const m = mDoc.data();
             const uniqueKey = m.mediaId || m.cloudinaryPublicId || mDoc.id;
@@ -397,11 +406,9 @@ async function loadRecordings() {
               });
             }
           });
-        } catch (_) {}
+        }
 
-        // Fetch user's recordings subcollection
-        try {
-          const recSnap = await getDocs(collection(db, "users", uid, "recordings"));
+        if (recSnap) {
           recSnap.forEach((rDoc) => {
             const r = rDoc.data();
             const uniqueKey = r.id || rDoc.id;
@@ -423,16 +430,16 @@ async function loadRecordings() {
               });
             }
           });
-        } catch (_) {}
-      }
+        }
+      }));
     } catch (e) {
       console.warn("Could not query users subcollections:", e);
     }
 
-    // 3. Scan devices collection if present
+    // 3. Scan devices collection if present (Parallelized)
     try {
       const devSnap = await getDocs(collection(db, "devices"));
-      for (const dDoc of devSnap.docs) {
+      await Promise.all(devSnap.docs.map(async (dDoc) => {
         const did = dDoc.id;
         try {
           const dMediaSnap = await getDocs(collection(db, "devices", did, "vault_media"));
@@ -464,7 +471,7 @@ async function loadRecordings() {
             }
           });
         } catch (_) {}
-      }
+      }));
     } catch (_) {}
 
     // Sort newest first
@@ -1148,56 +1155,30 @@ window.previewUserFile = function(fileIndex) {
   displayMediaInModal(file);
 };
 
-// Universal helper to permanently delete user media and purge from all Firestore records
-// Note: Firebase Storage is not enabled - only Firestore records are deleted
+// Universal helper to permanently delete user media and purge from all Firestore records via atomic batch
 async function deleteUserMediaCompletely(userId, fileId, mediaId, storagePath) {
   const mId = mediaId || fileId;
   const fId = fileId || mediaId;
+  const batch = writeBatch(db);
 
-  // 1. Delete from cloud_recordings (authoritative quota source for Android app)
-  const cloudDocIds = [mId, fId, `user_${userId}_${fId}`, `user_${userId}_${mId}`];
-  for (const cId of cloudDocIds) {
-    if (cId) {
-      try {
-        await deleteDoc(doc(db, "cloud_recordings", cId));
-      } catch (_) {}
+  if (mId) batch.delete(doc(db, "cloud_recordings", mId));
+  if (fId && fId !== mId) batch.delete(doc(db, "cloud_recordings", fId));
+
+  if (userId) {
+    batch.delete(doc(db, "cloud_recordings", `user_${userId}_${fId}`));
+    if (mId !== fId) batch.delete(doc(db, "cloud_recordings", `user_${userId}_${mId}`));
+    batch.delete(doc(db, "users", userId, "vault_media", fId));
+    batch.delete(doc(db, "users", userId, "recordings", fId));
+    if (mId !== fId) {
+      batch.delete(doc(db, "users", userId, "vault_media", mId));
+      batch.delete(doc(db, "users", userId, "recordings", mId));
     }
   }
 
-  // Query and purge any matching records in cloud_recordings
   try {
-    const crSnap = await getDocs(collection(db, "cloud_recordings"));
-    crSnap.forEach(async (dSnap) => {
-      const d = dSnap.data();
-      if ((d.userId === userId || d.anonymousAccountReference === userId) &&
-          (d.mediaId === mId || d.recordingId === mId || d.id === mId || dSnap.id === mId || dSnap.id === fId)) {
-        try {
-          await deleteDoc(doc(db, "cloud_recordings", dSnap.id));
-        } catch (_) {}
-      }
-    });
-  } catch (_) {}
-
-  // 2. Delete from users/{userId}/vault_media
-  if (userId) {
-    try {
-      await deleteDoc(doc(db, "users", userId, "vault_media", fId));
-    } catch (_) {}
-    if (mId !== fId) {
-      try {
-        await deleteDoc(doc(db, "users", userId, "vault_media", mId));
-      } catch (_) {}
-    }
-
-    // 3. Delete from users/{userId}/recordings
-    try {
-      await deleteDoc(doc(db, "users", userId, "recordings", fId));
-    } catch (_) {}
-    if (mId !== fId) {
-      try {
-        await deleteDoc(doc(db, "users", userId, "recordings", mId));
-      } catch (_) {}
-    }
+    await batch.commit();
+  } catch (err) {
+    console.warn("deleteUserMediaCompletely batch error:", err);
   }
 }
 
@@ -1544,6 +1525,47 @@ function renderStorageMetrics(list) {
   storageFreeDisplay.textContent = formatBytes(remaining);
 }
 
+// High-performance batch deletion helper to purge multiple files atomically without flooding connections
+async function batchDeleteMultipleRecordings(items) {
+  if (!items || items.length === 0) return 0;
+  let deletedCount = 0;
+  // Firestore batches support up to 500 writes. We process in chunks of 100 items (~300 operations per batch)
+  for (let i = 0; i < items.length; i += 100) {
+    const chunk = items.slice(i, i + 100);
+    const batch = writeBatch(db);
+
+    for (const item of chunk) {
+      const uid = item.userId || item.anonymousAccountReference;
+      const mId = item.mediaId || item.id;
+      const fId = item.id || item.mediaId;
+
+      if (item.id) batch.delete(doc(db, "cloud_recordings", item.id));
+      if (mId && mId !== item.id) batch.delete(doc(db, "cloud_recordings", mId));
+
+      if (uid) {
+        if (fId) {
+          batch.delete(doc(db, "cloud_recordings", `user_${uid}_${fId}`));
+          batch.delete(doc(db, "users", uid, "vault_media", fId));
+          batch.delete(doc(db, "users", uid, "recordings", fId));
+        }
+        if (mId && mId !== fId) {
+          batch.delete(doc(db, "cloud_recordings", `user_${uid}_${mId}`));
+          batch.delete(doc(db, "users", uid, "vault_media", mId));
+          batch.delete(doc(db, "users", uid, "recordings", mId));
+        }
+      }
+      deletedCount++;
+    }
+
+    try {
+      await batch.commit();
+    } catch (batchErr) {
+      console.warn("Batch commit warning:", batchErr);
+    }
+  }
+  return deletedCount;
+}
+
 cleanOldestBtn.addEventListener("click", async () => {
   const guests = recordings.filter((r) => (r.ownerType || "GUEST") === "GUEST");
   if (guests.length === 0) return showToast("No guest recordings found to clean.");
@@ -1552,10 +1574,8 @@ cleanOldestBtn.addEventListener("click", async () => {
   if (!confirm(`Delete ${oldest.length} oldest guest recordings to free space?`)) return;
 
   showToast(`Deleting ${oldest.length} oldest files...`);
-  for (const item of oldest) {
-    await deleteSingleRecordingInternal(item);
-  }
-  showToast(`Cleaned ${oldest.length} oldest recordings!`);
+  const count = await batchDeleteMultipleRecordings(oldest);
+  showToast(`Cleaned ${count} oldest recordings!`);
   await loadRecordings();
 });
 
@@ -1564,10 +1584,9 @@ cleanLargestBtn.addEventListener("click", async () => {
   if (large.length === 0) return showToast("No large recordings (>30MB) found.");
 
   if (!confirm(`Delete ${large.length} large recordings (>30MB) to recover space?`)) return;
-  for (const item of large) {
-    await deleteSingleRecordingInternal(item);
-  }
-  showToast(`Cleaned ${large.length} large recordings!`);
+  showToast(`Deleting ${large.length} large recordings...`);
+  const count = await batchDeleteMultipleRecordings(large);
+  showToast(`Cleaned ${count} large recordings!`);
   await loadRecordings();
 });
 
@@ -1588,15 +1607,11 @@ cancelPurgeBtn.addEventListener("click", () => confirmPurgeModal.classList.add("
 
 executePurgeBtn.addEventListener("click", async () => {
   confirmPurgeModal.classList.add("hidden");
-  showToast("Purging all guest cloud recordings...");
+  showToast("Purging all guest cloud recordings via atomic batches...");
   executePurgeBtn.disabled = true;
 
   try {
-    let deletedCount = 0;
-    for (const item of recordings) {
-      await deleteSingleRecordingInternal(item);
-      deletedCount++;
-    }
+    const deletedCount = await batchDeleteMultipleRecordings(recordings);
     showToast(`Purged ${deletedCount} recordings! 100% of space freed.`);
     recordAuditLog("PURGE_ALL_RECORDINGS", "Firebase Storage", { count: deletedCount });
     await loadRecordings();
@@ -1633,13 +1648,11 @@ recDeleteSelectedBtn.addEventListener("click", async () => {
 
   if (!confirm(`Delete all ${ids.length} selected recordings?`)) return;
 
-  showToast(`Deleting ${ids.length} recordings...`);
-  for (const id of ids) {
-    const item = recordings.find((r) => r.id === id);
-    if (item) await deleteSingleRecordingInternal(item);
-  }
-  recordAuditLog("BULK_DELETE_RECORDINGS", `${ids.length} items`, { count: ids.length });
-  showToast(`Deleted ${ids.length} recordings.`);
+  showToast(`Deleting ${ids.length} recordings via batch...`);
+  const selectedItems = recordings.filter((r) => ids.includes(r.id));
+  const count = await batchDeleteMultipleRecordings(selectedItems);
+  recordAuditLog("BULK_DELETE_RECORDINGS", `${count} items`, { count });
+  showToast(`Deleted ${count} recordings.`);
   await loadRecordings();
 });
 
@@ -2196,8 +2209,11 @@ const releaseNotes = document.getElementById("releaseNotes");
 const releaseMandatoryCheck = document.getElementById("releaseMandatoryCheck");
 const btnPublishAppUpdate = document.getElementById("btnPublishAppUpdate");
 
+let cachedLiveAppUpdateConfig = null;
+
 function renderAppUpdateInfo(config) {
   if (!config) return;
+  cachedLiveAppUpdateConfig = config;
   const vName = config.versionName || "1.0.0";
   const vCode = config.versionCode || 1;
   const isMandatory = config.isMandatory === true;
@@ -2289,18 +2305,17 @@ if (appUpdateReleaseForm) {
   appUpdateReleaseForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const vName = (releaseVersionName ? releaseVersionName.value : "").trim();
-    const vCode = parseInt(releaseVersionCode ? releaseVersionCode.value : "0", 10);
+    let vCode = parseInt(releaseVersionCode ? releaseVersionCode.value : "0", 10);
+    if (isNaN(vCode) || vCode <= 0) {
+      vCode = ((cachedLiveAppUpdateConfig && cachedLiveAppUpdateConfig.versionCode) ? cachedLiveAppUpdateConfig.versionCode : 7) + 1;
+    }
     const minCode = parseInt(releaseMinVersionCode ? releaseMinVersionCode.value : "1", 10) || 1;
     const apk = (releaseApkUrl ? releaseApkUrl.value : "").trim();
     const notes = (releaseNotes ? releaseNotes.value : "").trim();
     const isMandatory = releaseMandatoryCheck ? releaseMandatoryCheck.checked : false;
 
     if (!vName) {
-      alert("Please enter a version name (e.g. 1.2.0).");
-      return;
-    }
-    if (isNaN(vCode) || vCode <= 0) {
-      alert("Please enter a valid numeric version code (e.g. 2).");
+      alert("Please enter a version name (e.g. 2.7 or 3.0).");
       return;
     }
     if (!apk || !apk.startsWith("http")) {
@@ -2308,7 +2323,7 @@ if (appUpdateReleaseForm) {
       return;
     }
 
-    if (!confirm(`Are you sure you want to broadcast update v${vName} (Code: ${vCode}) to all users? Active app users will be notified to update.`)) {
+    if (!confirm(`Are you sure you want to broadcast update v${vName} to all users? App users will be notified to update according to this Version Name.`)) {
       return;
     }
 

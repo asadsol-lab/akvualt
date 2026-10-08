@@ -22,6 +22,19 @@
       <h2>Stealth Vault Admin Portal</h2>
       <p class="auth-subtitle">Authorized administration system for guest recordings, Firebase free-tier storage reclamation, user entitlements, and audit telemetry.</p>
       
+      <!-- Direct APK Download Banner -->
+      <div style="margin: 20px 0; padding: 16px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.25)); border: 2px solid #10b981; border-radius: 12px; text-align: center;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span style="color: #10b981; font-weight: 700; font-size: 1.05rem;">Direct APK Download</span>
+        </div>
+        <p style="color: #cbd5e1; font-size: 0.85rem; margin: 0 0 12px 0;">Download the compiled Android APK directly to your device:</p>
+        <a href="vualt111.apk" download="vualt111.apk" class="btn" style="display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px 20px; background: #10b981; color: #ffffff; font-size: 1.05rem; font-weight: 700; border-radius: 8px; text-decoration: none; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Download vualt111.apk (31 MB)
+        </a>
+      </div>
+
       <!-- Google Sign In Only -->
       <div class="auth-google-box" style="margin-top: 24px;">
         <button type="button" id="googleLoginBtn" class="btn btn-primary btn-block" style="display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 1.05rem; font-weight: 600; padding: 14px; background: #2563eb; border-radius: 8px;">
@@ -941,24 +954,14 @@
           </div>
 
           <form id="appUpdateReleaseForm">
-            <div class="grid-form">
+            <div class="grid-form" style="grid-template-columns: 1fr;">
               <div class="form-group">
                 <label for="releaseVersionName">New Version Name *</label>
-                <input type="text" id="releaseVersionName" class="input-control" placeholder="e.g. 1.2.0" required />
-                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">The user-facing version name (e.g. 1.1.0, 1.2.0, 2.0.0)</small>
+                <input type="text" id="releaseVersionName" class="input-control" placeholder="e.g. 2.7 or 3.0" required />
+                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Users will automatically be notified to update according to this Version Name.</small>
               </div>
-
-              <div class="form-group">
-                <label for="releaseVersionCode">New Version Code (Number) *</label>
-                <input type="number" id="releaseVersionCode" class="input-control" placeholder="e.g. 2" min="1" required />
-                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Must be higher than previous version code (e.g. 2, 3, 4...)</small>
-              </div>
-
-              <div class="form-group">
-                <label for="releaseMinVersionCode">Minimum Supported Version Code</label>
-                <input type="number" id="releaseMinVersionCode" class="input-control" value="1" min="1" />
-                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Users below this version will be forced to update</small>
-              </div>
+              <input type="hidden" id="releaseVersionCode" value="" />
+              <input type="hidden" id="releaseMinVersionCode" value="1" />
             </div>
 
             <div class="form-group" style="margin-top: 14px;">

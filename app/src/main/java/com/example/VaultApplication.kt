@@ -2,14 +2,35 @@ package com.example
 
 import android.app.Application
 import android.util.Log
+import com.example.feature.backup.VaultChunkedUploadScheduler
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class VaultApplication : Application() {
+
+    private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onCreate() {
         super.onCreate()
         initFirebase()
+        initBackgroundSync()
+    }
+
+    private fun initBackgroundSync() {
+        try {
+            // Register periodic background sync in WorkManager (survives reboots & long offline periods)
+            VaultChunkedUploadScheduler.schedulePeriodicSync(this)
+            // Schedule any pending un-synced media
+            appScope.launch {
+                VaultChunkedUploadScheduler.scheduleAllPending(this@VaultApplication)
+            }
+        } catch (e: Exception) {
+            Log.e("VaultApplication", "Failed to schedule background upload sync: ${e.message}")
+        }
     }
 
     private fun initFirebase() {

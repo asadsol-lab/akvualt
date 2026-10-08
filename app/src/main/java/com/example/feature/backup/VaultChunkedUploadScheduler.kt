@@ -5,9 +5,11 @@ import android.util.Log
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.Data
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.data.local.VaultDatabase
 import kotlinx.coroutines.Dispatchers
@@ -96,5 +98,30 @@ object VaultChunkedUploadScheduler {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to schedule all pending uploads: ${e.message}", e)
         }
+    }
+
+    /**
+     * Enqueues a periodic background check that guarantees even if the device was offline
+     * for weeks or months, all pending media files are automatically picked up and uploaded
+     * as soon as internet connectivity returns.
+     */
+    fun schedulePeriodicSync(context: Context) {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val periodicRequest = PeriodicWorkRequestBuilder<VaultSyncPeriodicWorker>(
+            15, TimeUnit.MINUTES
+        )
+            .setConstraints(constraints)
+            .addTag("vault_periodic_sync")
+            .build()
+
+        WorkManager.getInstance(context.applicationContext).enqueueUniquePeriodicWork(
+            "vault_periodic_sync_work",
+            ExistingPeriodicWorkPolicy.KEEP,
+            periodicRequest
+        )
+        Log.i(TAG, "Registered periodic background upload sync in WorkManager")
     }
 }
