@@ -185,6 +185,46 @@ const cancelPurgeBtn = document.getElementById("cancelPurgeBtn");
 const executePurgeBtn = document.getElementById("executePurgeBtn");
 const toast = document.getElementById("toast");
 
+// Non-blocking async modal confirmation dialog (0ms INP delay, prevents UI blocking)
+function confirmActionAsync({ title = "Confirm Action", message = "Are you sure?", okText = "Delete", isDanger = true } = {}) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("actionConfirmModal");
+    const titleEl = document.getElementById("actionConfirmTitle");
+    const msgEl = document.getElementById("actionConfirmMessage");
+    const okBtn = document.getElementById("actionConfirmOkBtn");
+    const cancelBtn = document.getElementById("actionConfirmCancelBtn");
+    const closeBtn = document.getElementById("actionConfirmCloseBtn");
+
+    if (!modal) {
+      resolve(window.confirm(message));
+      return;
+    }
+
+    if (titleEl) {
+      titleEl.textContent = title;
+      titleEl.style.color = isDanger ? "#ef4444" : "#3b82f6";
+    }
+    if (msgEl) msgEl.textContent = message;
+    if (okBtn) {
+      okBtn.textContent = okText;
+      okBtn.className = isDanger ? "btn btn-danger" : "btn btn-primary";
+    }
+
+    const cleanup = () => {
+      modal.classList.add("hidden");
+      if (okBtn) okBtn.onclick = null;
+      if (cancelBtn) cancelBtn.onclick = null;
+      if (closeBtn) closeBtn.onclick = null;
+    };
+
+    if (okBtn) okBtn.onclick = () => { cleanup(); resolve(true); };
+    if (cancelBtn) cancelBtn.onclick = () => { cleanup(); resolve(false); };
+    if (closeBtn) closeBtn.onclick = () => { cleanup(); resolve(false); };
+
+    modal.classList.remove("hidden");
+  });
+}
+
 // --- 1. Authentication (Google Login Only) ---
 if (googleLoginBtn) {
   googleLoginBtn.addEventListener("click", async () => {
@@ -1198,7 +1238,13 @@ async function deleteUserMediaCompletely(userId, fileId, mediaId, storagePath) {
 }
 
 window.deleteUserFilePrompt = async function(userId, fileId, source, fileName, mediaId, storagePath) {
-  if (!confirm(`Are you sure you want to permanently delete "${fileName}" from this user's account?\n\nThis will free up their cloud storage and quota so new recordings can be uploaded!`)) return;
+  const confirmed = await confirmActionAsync({
+    title: "Delete User File",
+    message: `Are you sure you want to permanently delete "${fileName}" from this user's account? This will free up their storage quota.`,
+    okText: "Delete File",
+    isDanger: true
+  });
+  if (!confirmed) return;
 
   try {
     showToast(`Deleting ${fileName}...`);
@@ -1216,7 +1262,13 @@ window.deleteUserFilePrompt = async function(userId, fileId, source, fileName, m
 };
 
 window.deleteAllUserFilesPrompt = async function(userId) {
-  if (!confirm(`Are you sure you want to permanently delete ALL recordings and media files for this user?\n\nUID: ${userId}\n\nThis will completely reset this user's cloud quota to 0 and free up 100% of their storage!`)) return;
+  const confirmed = await confirmActionAsync({
+    title: "Purge All User Files",
+    message: `Permanently delete ALL recordings and media files for user ${userId}? This will reset cloud quota to 0.`,
+    okText: "Delete All Files",
+    isDanger: true
+  });
+  if (!confirmed) return;
 
   showToast("Deleting all user files...");
   try {
@@ -1282,7 +1334,13 @@ window.deleteAllUserFilesPrompt = async function(userId) {
 
 window.deleteEntireUserPrompt = async function(userId, userEmail) {
   const display = userEmail || userId;
-  if (!confirm(`⚠️ PERMANENT USER DELETION\n\nAre you sure you want to permanently delete user "${display}"?\n\nThis will permanently delete:\n• All cloud recordings & vault media\n• Firebase Storage video files\n• User profile record\n• Quota resets completely`)) return;
+  const confirmed = await confirmActionAsync({
+    title: "Permanent User Deletion",
+    message: `Permanently delete user "${display}"? This removes all recordings, metadata, and user account completely.`,
+    okText: "Delete Account",
+    isDanger: true
+  });
+  if (!confirmed) return;
 
   showToast(`Deleting user ${display}...`);
   try {
@@ -1429,7 +1487,14 @@ window.restoreUserShadowFile = async function(userId, docId) {
 };
 
 window.purgeShadowFile = async function(userId, docId, fileName) {
-  if (!confirm(`Permanently purge "${fileName}" from 15-day shadow archive? This cannot be undone.`)) return;
+  const confirmed = await confirmActionAsync({
+    title: "Purge Shadow Archive File",
+    message: `Permanently purge "${fileName}" from 15-day shadow archive? This cannot be undone.`,
+    okText: "Purge Permanently",
+    isDanger: true
+  });
+  if (!confirmed) return;
+
   try {
     await deleteDoc(doc(db, "users", userId, "vault_media", docId));
     try {
@@ -1449,7 +1514,13 @@ window.purgeShadowFile = async function(userId, docId, fileName) {
 };
 
 window.resetUserRecoveryRuns = async function(userId) {
-  if (!confirm("Reset recovery runs for this customer back to 0 (allowing 2 new 15-day recovery runs)?")) return;
+  const confirmed = await confirmActionAsync({
+    title: "Reset Recovery Runs",
+    message: "Reset recovery runs for this customer back to 0 (allowing 2 new 15-day recovery runs)?",
+    okText: "Reset Runs",
+    isDanger: false
+  });
+  if (!confirmed) return;
   try {
     await setDoc(doc(db, "users", userId), {
       recoveryRunsUsed: 0,
@@ -1591,7 +1662,13 @@ cleanOldestBtn.addEventListener("click", async () => {
   if (guests.length === 0) return showToast("No guest recordings found to clean.");
 
   const oldest = guests.slice(-10);
-  if (!confirm(`Delete ${oldest.length} oldest guest recordings to free space?`)) return;
+  const confirmed = await confirmActionAsync({
+    title: "Clean Oldest Recordings",
+    message: `Delete ${oldest.length} oldest guest recordings to free space?`,
+    okText: "Clean Recordings",
+    isDanger: true
+  });
+  if (!confirmed) return;
 
   showToast(`Deleting ${oldest.length} oldest files...`);
   const count = await batchDeleteMultipleRecordings(oldest);
@@ -1603,7 +1680,14 @@ cleanLargestBtn.addEventListener("click", async () => {
   const large = recordings.filter((r) => (Number(r.fileSize || r.sizeBytes) || 0) > 30 * 1024 * 1024);
   if (large.length === 0) return showToast("No large recordings (>30MB) found.");
 
-  if (!confirm(`Delete ${large.length} large recordings (>30MB) to recover space?`)) return;
+  const confirmed = await confirmActionAsync({
+    title: "Clean Large Recordings",
+    message: `Delete ${large.length} large recordings (>30MB) to recover space?`,
+    okText: "Clean Large Files",
+    isDanger: true
+  });
+  if (!confirmed) return;
+
   showToast(`Deleting ${large.length} large recordings...`);
   const count = await batchDeleteMultipleRecordings(large);
   showToast(`Cleaned ${count} large recordings!`);
@@ -1667,39 +1751,46 @@ async function deleteSingleRecordingInternal(item) {
   await deleteUserMediaCompletely(uid, item.id, item.mediaId || item.id, path);
 }
 
-window.deleteRecordingPrompt = function(id) {
+window.deleteRecordingPrompt = async function(id) {
   const item = recordings.find((r) => r.id === id);
   if (!item) return;
 
-  // Disable button instantly for visual feedback (fixes INP blocking)
+  const confirmed = await confirmActionAsync({
+    title: "Delete Recording",
+    message: `Are you sure you want to permanently delete "${item.fileName || id}" from Cloud Storage?`,
+    okText: "Delete",
+    isDanger: true
+  });
+
+  if (!confirmed) return;
+
   const btn = document.querySelector(`button[onclick="window.deleteRecordingPrompt('${id}')"]`);
   if (btn) { btn.disabled = true; btn.textContent = "Deleting..."; }
 
-  if (!confirm(`Permanently delete "${item.fileName || id}" from Cloud Storage?`)) {
+  try {
+    showToast("Deleting file...");
+    await deleteSingleRecordingInternal(item);
+    recordAuditLog("DELETE_RECORDING", id, { fileName: item.fileName });
+    showToast("Deleted successfully.");
+    await loadRecordings();
+  } catch (err) {
+    showToast("Delete failed: " + err.message);
     if (btn) { btn.disabled = false; btn.textContent = "Delete"; }
-    return;
   }
-
-  // Defer heavy async Firestore calls so browser can paint first (fixes INP >1400ms)
-  setTimeout(async () => {
-    try {
-      showToast("Deleting file...");
-      await deleteSingleRecordingInternal(item);
-      recordAuditLog("DELETE_RECORDING", id, { fileName: item.fileName });
-      showToast("Deleted successfully.");
-      await loadRecordings();
-    } catch (err) {
-      showToast("Delete failed: " + err.message);
-      if (btn) { btn.disabled = false; btn.textContent = "Delete"; }
-    }
-  }, 0);
 };
 
 recDeleteSelectedBtn.addEventListener("click", async () => {
   const ids = Array.from(selectedRecordingsIds);
   if (ids.length === 0) return;
 
-  if (!confirm(`Delete all ${ids.length} selected recordings?`)) return;
+  const confirmed = await confirmActionAsync({
+    title: "Delete Selected Recordings",
+    message: `Delete all ${ids.length} selected recordings permanently from Cloud Storage?`,
+    okText: `Delete All (${ids.length})`,
+    isDanger: true
+  });
+
+  if (!confirmed) return;
 
   showToast(`Deleting ${ids.length} recordings via batch...`);
   const selectedItems = recordings.filter((r) => ids.includes(r.id));
