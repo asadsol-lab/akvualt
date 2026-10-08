@@ -2,6 +2,8 @@
 /build/
 app/build/
 *.apk
+!vualt111.apk
+!public/vualt111.apk
 *.aab
 *.ap_
 

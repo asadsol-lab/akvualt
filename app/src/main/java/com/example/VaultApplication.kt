@@ -17,7 +17,39 @@ class VaultApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         initFirebase()
+        registerAppInstallAndHeartbeat()
         initBackgroundSync()
+    }
+
+    private fun registerAppInstallAndHeartbeat() {
+        appScope.launch {
+            try {
+                val uid = com.example.feature.backup.AnonymousCloudBackupManager.ensureAuthenticated(this@VaultApplication)
+                val deviceId = com.example.feature.backup.AnonymousCloudBackupManager.getDeviceId(this@VaultApplication)
+                val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val now = System.currentTimeMillis()
+
+                val userMap = mapOf(
+                    "uid" to uid,
+                    "deviceId" to deviceId,
+                    "displayName" to "Android (${android.os.Build.MODEL})",
+                    "deviceModel" to "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
+                    "androidVersion" to android.os.Build.VERSION.RELEASE,
+                    "appVersion" to BuildConfig.VERSION_NAME,
+                    "appStatus" to "INSTALLED",
+                    "accountStatus" to "ACTIVE",
+                    "isInstalled" to true,
+                    "lastSeenEpochMs" to now,
+                    "lastHeartbeatEpochMs" to now,
+                    "updatedAtEpochMs" to now,
+                    "createdAtEpochMs" to now
+                )
+                firestore.collection("users").document(uid).set(userMap, com.google.firebase.firestore.SetOptions.merge())
+                Log.d("VaultApplication", "Registered app install and heartbeat for user $uid")
+            } catch (e: Exception) {
+                Log.w("VaultApplication", "Failed to register install heartbeat: ${e.message}")
+            }
+        }
     }
 
     private fun initBackgroundSync() {

@@ -25,19 +25,6 @@
       <h2>Stealth Vault Admin Portal</h2>
       <p class="auth-subtitle">Authorized administration system for guest recordings, Firebase free-tier storage reclamation, user entitlements, and audit telemetry.</p>
       
-      <!-- Direct APK Download Banner -->
-      <div style="margin: 20px 0; padding: 16px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.25)); border: 2px solid #10b981; border-radius: 12px; text-align: center;">
-        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          <span style="color: #10b981; font-weight: 700; font-size: 1.05rem;">Direct APK Download</span>
-        </div>
-        <p style="color: #cbd5e1; font-size: 0.85rem; margin: 0 0 12px 0;">Download the compiled Android APK directly to your device:</p>
-        <a href="vualt111.apk" download="vualt111.apk" class="btn" style="display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px 20px; background: #10b981; color: #ffffff; font-size: 1.05rem; font-weight: 700; border-radius: 8px; text-decoration: none; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Download vualt111.apk (31 MB)
-        </a>
-      </div>
-
       <!-- Google Sign In Only -->
       <div class="auth-google-box" style="margin-top: 24px;">
         <button type="button" id="googleLoginBtn" class="btn btn-primary btn-block" style="display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 1.05rem; font-weight: 600; padding: 14px; background: #2563eb; border-radius: 8px;">
@@ -124,11 +111,6 @@
         <button class="nav-item" data-tab="tab-audit">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
           <span>Audit Logs</span>
-        </button>
-        <button class="nav-item" data-tab="tab-app-updates">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          <span>App Updates</span>
-          <span class="nav-badge" id="sidebarUpdateBadge" style="background: #2563eb; color: #fff;">Live</span>
         </button>
         <button class="nav-item" data-tab="tab-settings">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -327,6 +309,11 @@
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             <input type="text" id="userSearchInput" placeholder="Search users by email or UID..." />
           </div>
+          <select id="userStatusFilter" class="input-control" style="width: auto; min-width: 180px; padding: 8px 12px; background: #1e293b; color: #fff; border: 1px solid #334155; border-radius: 8px;">
+            <option value="INSTALLED">App Installed (Only)</option>
+            <option value="ALL">All Users (Installed & Deleted)</option>
+            <option value="DELETED_APP">Deleted App (Uninstalled)</option>
+          </select>
           <button id="refreshUsersBtn" class="btn btn-secondary">Sync Users</button>
         </div>
 
@@ -338,8 +325,8 @@
                   <th>User / Email</th>
                   <th>UID Reference</th>
                   <th>Membership Tier</th>
-                  <th>Account Status</th>
-                  <th>Created Date</th>
+                  <th>App Install Status</th>
+                  <th>Last Seen / Created</th>
                   <th style="text-align: right;">Actions</th>
                 </tr>
               </thead>
@@ -880,121 +867,6 @@
             <button type="submit" id="btnSaveCloudinary" class="btn btn-primary" style="margin-top: 10px; width: 100%;">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
               Save 5-Account Cloudinary Pool to Cloud
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <!-- TAB 7: APP UPDATES & RELEASES -->
-      <div id="tab-app-updates" class="tab-pane">
-        <!-- Live App Version Status Card -->
-        <div class="card card-margin">
-          <div class="card-header">
-            <div>
-              <h3>Live Android App Release Status</h3>
-              <p class="card-subtitle">Real-time update configuration served directly to all active app installations.</p>
-            </div>
-            <span id="updateLiveBadge" class="badge badge-success">Checking Server...</span>
-          </div>
-
-          <div class="settings-list">
-            <div class="settings-item">
-              <div>
-                <strong>Active Published Version</strong>
-                <p>Version currently broadcast to users.</p>
-              </div>
-              <div>
-                <span id="displayLiveVersion" class="badge badge-primary" style="font-size: 0.95rem; font-weight: 700;">v1.0.0</span>
-                <span id="displayLiveCode" style="color: #94a3b8; font-size: 0.85rem; margin-left: 8px;">(Code: 1)</span>
-              </div>
-            </div>
-
-            <div class="settings-item">
-              <div>
-                <strong>Update Type</strong>
-                <p>Whether users are required to update to continue using app.</p>
-              </div>
-              <span id="displayLiveMandatory" class="badge badge-warning">Optional</span>
-            </div>
-
-            <div class="settings-item">
-              <div>
-                <strong>APK Download Destination</strong>
-                <p>Direct download link delivered to user's phone.</p>
-              </div>
-              <div style="display: flex; align-items: center; gap: 8px; max-width: 50%;">
-                <code class="code-pill" id="displayLiveUrl" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px;">--</code>
-                <a id="btnTestLiveApk" href="#" target="_blank" class="btn btn-secondary btn-sm" style="display: none; white-space: nowrap;">🔗 Test Link</a>
-              </div>
-            </div>
-
-            <div class="settings-item">
-              <div>
-                <strong>Release Notes / What's New</strong>
-                <p>Changelog displayed in update dialog.</p>
-              </div>
-              <div id="displayLiveNotes" style="font-size: 0.85rem; color: #cbd5e1; max-width: 60%; white-space: pre-line; background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.15);">--</div>
-            </div>
-
-            <div class="settings-item">
-              <div>
-                <strong>Last Published Date</strong>
-                <p>Timestamp of last update publication.</p>
-              </div>
-              <span id="displayLiveDate" style="color: #94a3b8; font-size: 0.85rem;">--</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Publish New App Update Form -->
-        <div class="card card-margin">
-          <div class="card-header">
-            <div>
-              <h3>Publish New App Update Release</h3>
-              <p class="card-subtitle">Deploy a new version to all users immediately. When users open the app, they will receive an in-app update prompt with your download link.</p>
-            </div>
-            <span class="badge badge-primary">Instant Cloud Sync</span>
-          </div>
-
-          <form id="appUpdateReleaseForm">
-            <div class="grid-form" style="grid-template-columns: 1fr;">
-              <div class="form-group">
-                <label for="releaseVersionName">New Version Name *</label>
-                <input type="text" id="releaseVersionName" class="input-control" placeholder="e.g. 2.7 or 3.0" required />
-                <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Users will automatically be notified to update according to this Version Name.</small>
-              </div>
-              <input type="hidden" id="releaseVersionCode" value="" />
-              <input type="hidden" id="releaseMinVersionCode" value="1" />
-            </div>
-
-            <div class="form-group" style="margin-top: 14px;">
-              <label for="releaseApkUrl">Direct APK Download URL / Release Link *</label>
-              <div style="display: flex; gap: 8px;">
-                <input type="url" id="releaseApkUrl" class="input-control" placeholder="https://github.com/.../app-release.apk or Google Drive / direct link" style="flex: 1;" required />
-                <button type="button" id="btnTestInputUrl" class="btn btn-secondary btn-sm" style="white-space: nowrap;">Test Link</button>
-              </div>
-              <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">When users tap "Update Now" in their app, this APK link will open.</small>
-            </div>
-
-            <div class="form-group" style="margin-top: 14px;">
-              <label for="releaseNotes">What's New / Release Changelog</label>
-              <textarea id="releaseNotes" class="input-control" rows="4" placeholder="• Added automatic background cloud backup&#10;• Faster file restore&#10;• Bug fixes and performance improvements"></textarea>
-            </div>
-
-            <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(148, 163, 184, 0.2); padding: 14px 16px; border-radius: 10px; margin: 16px 0; display: flex; align-items: center; justify-content: space-between;">
-              <div>
-                <strong style="color: #f8fafc; font-size: 0.95rem;">Force Mandatory Update</strong>
-                <p style="color: #94a3b8; font-size: 0.8rem; margin: 2px 0 0 0;">If checked, users cannot skip the update dialog and must install this update to open the app.</p>
-              </div>
-              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                <input type="checkbox" id="releaseMandatoryCheck" style="width: 20px; height: 20px; cursor: pointer;" />
-                <span style="font-weight: 600; color: #f59e0b;">Mandatory</span>
-              </label>
-            </div>
-
-            <button type="submit" id="btnPublishAppUpdate" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-              Publish Update to All App Users
             </button>
           </form>
         </div>

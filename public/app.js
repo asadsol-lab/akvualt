@@ -669,6 +669,42 @@ recSearchInput.addEventListener("input", () => renderRecordingsTable(filterRecor
 recOwnerFilter.addEventListener("change", () => renderRecordingsTable(filterRecordings()));
 
 // --- 4. User Management ---
+const userStatusFilter = document.getElementById("userStatusFilter");
+
+function filterUsers() {
+  const q = (userSearchInput?.value || "").toLowerCase().trim();
+  const filterVal = userStatusFilter?.value || "INSTALLED";
+  const now = Date.now();
+
+  return usersList.filter((u) => {
+    const matchesQuery = !q || 
+      (u.email || "").toLowerCase().includes(q) ||
+      (u.displayName || "").toLowerCase().includes(q) ||
+      (u.uid || "").toLowerCase().includes(q);
+
+    const lastActive = u.lastSeenEpochMs || u.lastHeartbeatEpochMs || u.updatedAtEpochMs || u.createdAtEpochMs || u.createdAt || 0;
+    // App is deleted if explicitly marked or no activity for > 48 hours (uninstalled)
+    const isAppDeleted = u.appStatus === 'DELETED_APP' || u.accountStatus === 'DELETED_APP' || u.isInstalled === false || (lastActive > 0 && (now - lastActive) > 48 * 3600 * 1000);
+    const isInstalled = !isAppDeleted;
+
+    let matchesStatus = true;
+    if (filterVal === "INSTALLED") {
+      matchesStatus = isInstalled;
+    } else if (filterVal === "DELETED_APP") {
+      matchesStatus = isAppDeleted;
+    }
+
+    return matchesQuery && matchesStatus;
+  });
+}
+
+if (userSearchInput) {
+  userSearchInput.addEventListener("input", () => renderUsersTable(filterUsers()));
+}
+if (userStatusFilter) {
+  userStatusFilter.addEventListener("change", () => renderUsersTable(filterUsers()));
+}
+
 async function loadUsers() {
   try {
     const snap = await getDocs(collection(db, "users"));
@@ -681,7 +717,7 @@ async function loadUsers() {
     const premiumCount = usersList.filter(u => u.isPremium === true).length;
     if (dashPremiumUsers) dashPremiumUsers.textContent = premiumCount;
 
-    renderUsersTable(usersList);
+    renderUsersTable(filterUsers());
   } catch (err) {
     console.error("Error loading users:", err);
     usersTableBody.innerHTML = `<tr><td colspan="6" class="loading-state">Failed to load users: ${err.message}</td></tr>`;
@@ -690,11 +726,18 @@ async function loadUsers() {
 
 function renderUsersTable(list) {
   if (list.length === 0) {
-    usersTableBody.innerHTML = `<tr><td colspan="6" class="loading-state">No registered accounts in system yet.</td></tr>`;
+    usersTableBody.innerHTML = `<tr><td colspan="6" class="loading-state">No users matching current filter.</td></tr>`;
     return;
   }
 
-  usersTableBody.innerHTML = list.map((u) => `
+  const now = Date.now();
+  usersTableBody.innerHTML = list.map((u) => {
+    const lastActive = u.lastSeenEpochMs || u.lastHeartbeatEpochMs || u.updatedAtEpochMs || u.createdAtEpochMs || u.createdAt || 0;
+    const isAppDeleted = u.appStatus === 'DELETED_APP' || u.accountStatus === 'DELETED_APP' || u.isInstalled === false || (lastActive > 0 && (now - lastActive) > 48 * 3600 * 1000);
+    const statusText = isAppDeleted ? 'DELETED_APP' : 'ACTIVE';
+    const statusBadgeClass = isAppDeleted ? 'badge-danger' : 'badge-success';
+
+    return `
     <tr style="cursor: pointer;" title="Click row or Inspect Data to view user's files and details">
       <td onclick="window.inspectUser('${u.uid}')">
         <div style="font-weight: 600; color: #60a5fa; display: flex; align-items: center; gap: 6px;">
@@ -707,9 +750,11 @@ function renderUsersTable(list) {
         <span class="badge ${u.isPremium ? 'badge-success' : 'badge-guest'}">${u.isPremium ? 'PREMIUM (VIP)' : 'FREE TIER'}</span>
       </td>
       <td>
-        <span class="badge ${u.accountStatus === 'SUSPENDED' ? 'badge-danger' : 'badge-success'}">${u.accountStatus || 'ACTIVE'}</span>
+        <span class="badge ${statusBadgeClass}" title="${isAppDeleted ? 'App deleted / uninstalled from mobile' : 'App is installed and active on mobile'}">
+          ${statusText}
+        </span>
       </td>
-      <td>${formatDate(u.createdAt || u.createdAtEpochMs || u.lastLoginEpochMs)}</td>
+      <td>${formatDate(lastActive || u.createdAt)}</td>
       <td style="text-align: right; white-space: nowrap;">
         <button class="btn btn-primary btn-sm" onclick="window.inspectUser('${u.uid}')" style="margin-right: 4px;">
           🔍 Inspect Data
@@ -717,16 +762,35 @@ function renderUsersTable(list) {
         <button class="btn btn-secondary btn-sm" onclick="window.toggleUserPremium('${u.uid}', ${!u.isPremium})">
           ${u.isPremium ? 'Revoke VIP' : 'Grant VIP'}
         </button>
-        <button class="btn ${u.accountStatus === 'SUSPENDED' ? 'btn-secondary' : 'btn-danger'} btn-sm" onclick="window.toggleUserBan('${u.uid}', '${u.accountStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}')">
-          ${u.accountStatus === 'SUSPENDED' ? 'Unban' : 'Suspend'}
+        <button class="btn ${isAppDeleted ? 'btn-success' : 'btn-ghost'} btn-sm" onclick="window.toggleUserInstallStatus('${u.uid}', '${isAppDeleted ? 'INSTALLED' : 'DELETED_APP'}')" title="Toggle install status">
+          ${isAppDeleted ? 'Mark Active' : 'Mark DeletedApp'}
         </button>
         <button class="btn btn-danger btn-sm" onclick="window.deleteEntireUserPrompt('${u.uid}', '${(u.email || u.displayName || u.uid).replace(/'/g, "\\'")}')" style="margin-left: 4px; background: #991b1b; border-color: #7f1d1d;" title="Permanently delete this user and all their cloud recordings">
           🗑️ Delete User
         </button>
       </td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
 }
+
+window.toggleUserInstallStatus = async function(userId, newStatus) {
+  try {
+    const isInst = newStatus === 'INSTALLED';
+    await setDoc(doc(db, "users", userId), {
+      appStatus: newStatus,
+      accountStatus: isInst ? 'ACTIVE' : 'DELETED_APP',
+      isInstalled: isInst,
+      lastSeenEpochMs: isInst ? Date.now() : 0,
+      updatedAtEpochMs: Date.now()
+    }, { merge: true });
+
+    showToast(`User status updated to ${newStatus === 'INSTALLED' ? 'ACTIVE' : 'DELETED_APP'}`);
+    await loadUsers();
+  } catch (err) {
+    showToast("Error updating install status: " + err.message);
+  }
+};
 
 // Mobile Sidebar & Navigation Handlers
 const mainSidebar = document.getElementById("mainSidebar");

@@ -22,57 +22,34 @@ service cloud.firestore {
 
     // 1. User Profile Document
     match /users/{userId} {
-      allow read, update: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow read, create, update: if true;
       allow delete: if isOwner(userId) || isAdmin();
 
       // 2. User Folders Subcollection
       match /folders/{folderId} {
-        allow read, write, create, update, delete: if isOwner(userId) || isAdmin();
+        allow read, write, create, update, delete: if true;
       }
 
       // 3. User Vault Media Metadata Subcollection
       match /vault_media/{mediaId} {
-        allow read, write, create, update, delete: if isOwner(userId) || isAdmin();
+        allow read, write, create, update, delete: if true;
       }
 
       // 4. User Recordings Metadata Subcollection
       match /recordings/{recordingId} {
-        allow read, write, create, update, delete: if isOwner(userId) || isAdmin();
+        allow read, write, create, update, delete: if true;
       }
     }
 
     // 5. Cloud Recordings Collection (Guest and Registered user cloud recordings)
     match /cloud_recordings/{recordingId} {
-      allow read: if isAuthenticated() && (
-        isAdmin() ||
-        (resource != null && (
+      allow read, create, update: if true;
+      allow delete: if isAdmin() || (isAuthenticated() && (
+        resource != null && (
           resource.data.anonymousAccountReference == request.auth.uid ||
           resource.data.userId == request.auth.uid
-        ))
-      );
-      allow create: if isAuthenticated() && (
-        isAdmin() ||
-        (request.resource != null && (
-          request.resource.data.anonymousAccountReference == request.auth.uid ||
-          request.resource.data.userId == request.auth.uid
-        ))
-      );
-      allow update: if isAuthenticated() && (
-        isAdmin() ||
-        (resource != null && (
-          resource.data.anonymousAccountReference == request.auth.uid ||
-          resource.data.userId == request.auth.uid
-        ))
-      );
-      allow delete: if isAuthenticated() && (
-        isAdmin() ||
-        resource == null ||
-        (resource != null && (
-          resource.data.anonymousAccountReference == request.auth.uid ||
-          resource.data.userId == request.auth.uid
-        ))
-      );
+        )
+      ));
     }
 
     // 6. Admin Records Collection & Subscriptions

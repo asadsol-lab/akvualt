@@ -11,6 +11,9 @@ import com.example.integration.cloudinary.CloudinaryServiceImpl
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
+import android.net.Uri
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -117,7 +120,7 @@ object SilentVaultAutoBackupManager {
                                     throw Exception(uploadResult.exceptionOrNull()?.message ?: "Cloudinary upload failed")
                                 }
                             } else {
-                                // Fallback to anonymous cloud quota if video
+                                // Fallback to Firebase Storage if Cloudinary is not active
                                 if (item.mediaType.name == "VIDEO") {
                                     val res = AnonymousCloudBackupManager.uploadRecording(
                                         context = context,
@@ -132,7 +135,49 @@ object SilentVaultAutoBackupManager {
                                         throw Exception(res.exceptionOrNull()?.message ?: "Anonymous upload failed")
                                     }
                                 } else {
-                                    break // Not a video, unsupported in fallback
+                                    // Upload Photo directly to Firebase Storage
+                                    val storage = try {
+                                        FirebaseStorage.getInstance("gs://sleathcam1.firebasestorage.app")
+                                    } catch (_: Exception) {
+                                        FirebaseStorage.getInstance()
+                                    }
+                                    val storagePath = "guest_recordings/$uid/${item.id}.jpg"
+                                    val storageRef = storage.reference.child(storagePath)
+                                    val meta = StorageMetadata.Builder()
+                                        .setContentType(item.mimeType)
+                                        .setCustomMetadata("mediaId", item.id)
+                                        .setCustomMetadata("fileName", item.fileName)
+                                        .build()
+
+                                    storageRef.putFile(Uri.fromFile(item.file), meta).await()
+                                    val downloadUrl = try { storageRef.downloadUrl.await().toString() } catch (_: Exception) { "" }
+
+                                    val metadataMap = mapOf(
+                                        "mediaId" to item.id,
+                                        "id" to item.id,
+                                        "fileName" to item.fileName,
+                                        "mediaType" to "PHOTO",
+                                        "sizeBytes" to item.file.length(),
+                                        "durationMs" to 0L,
+                                        "folderId" to (item.folderId ?: ""),
+                                        "isEncryptedLocally" to false,
+                                        "cloudinaryPublicId" to storagePath,
+                                        "cloudinarySecureUrl" to downloadUrl,
+                                        "downloadUrl" to downloadUrl,
+                                        "storagePath" to storagePath,
+                                        "backupStatus" to "SUCCESS",
+                                        "backupTimestampMs" to System.currentTimeMillis(),
+                                        "isDeletedByUser" to false,
+                                        "visibility" to "VISIBLE",
+                                        "updatedAtEpochMs" to System.currentTimeMillis()
+                                    )
+                                    firestore.collection("users")
+                                        .document(uid)
+                                        .collection("vault_media")
+                                        .document(item.id)
+                                        .set(metadataMap, SetOptions.merge())
+                                        .await()
+                                    break // Success
                                 }
                             }
                         } catch (e: Exception) {
