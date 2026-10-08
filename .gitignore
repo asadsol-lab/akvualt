@@ -19,6 +19,7 @@ gradle-wrapper.jar
 
 # Keystore / Signing (SENSITIVE - never commit!)
 *.jks
+!app-keystore.jks
 *.keystore
 debug.keystore
 my-upload-key.jks

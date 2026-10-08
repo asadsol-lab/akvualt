@@ -24,21 +24,12 @@ android {
   }
 
   signingConfigs {
-    create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
-      enableV1Signing = true
-      enableV2Signing = true
-    }
-    create("debugConfig") {
-      val localStore = file("C:/Users/Asad King/.android/debug.keystore")
-      storeFile = if (localStore.exists()) localStore else file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
+    create("appSigning") {
+      val keyPath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/app-keystore.jks"
+      storeFile = file(keyPath)
+      storePassword = System.getenv("STORE_PASSWORD") ?: "654321"
+      keyAlias = System.getenv("KEY_ALIAS") ?: "sleathkey"
+      keyPassword = System.getenv("KEY_PASSWORD") ?: "654321"
       enableV1Signing = true
       enableV2Signing = true
     }
@@ -49,9 +40,11 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      signingConfig = signingConfigs.getByName("appSigning")
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug {
+      signingConfig = signingConfigs.getByName("appSigning")
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
