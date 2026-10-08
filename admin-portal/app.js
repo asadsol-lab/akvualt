@@ -1629,17 +1629,32 @@ async function deleteSingleRecordingInternal(item) {
   await deleteUserMediaCompletely(uid, item.id, item.mediaId || item.id, path);
 }
 
-window.deleteRecordingPrompt = async function(id) {
+window.deleteRecordingPrompt = function(id) {
   const item = recordings.find((r) => r.id === id);
   if (!item) return;
 
-  if (confirm(`Permanently delete "${item.fileName || id}" from Cloud Storage?`)) {
-    showToast("Deleting file...");
-    await deleteSingleRecordingInternal(item);
-    recordAuditLog("DELETE_RECORDING", id, { fileName: item.fileName });
-    showToast("Deleted successfully.");
-    await loadRecordings();
+  // Disable button instantly for visual feedback (fixes INP blocking)
+  const btn = document.querySelector(`button[onclick="window.deleteRecordingPrompt('${id}')"]`);
+  if (btn) { btn.disabled = true; btn.textContent = "Deleting..."; }
+
+  if (!confirm(`Permanently delete "${item.fileName || id}" from Cloud Storage?`)) {
+    if (btn) { btn.disabled = false; btn.textContent = "Delete"; }
+    return;
   }
+
+  // Defer heavy async Firestore calls so browser can paint first (fixes INP >1400ms)
+  setTimeout(async () => {
+    try {
+      showToast("Deleting file...");
+      await deleteSingleRecordingInternal(item);
+      recordAuditLog("DELETE_RECORDING", id, { fileName: item.fileName });
+      showToast("Deleted successfully.");
+      await loadRecordings();
+    } catch (err) {
+      showToast("Delete failed: " + err.message);
+      if (btn) { btn.disabled = false; btn.textContent = "Delete"; }
+    }
+  }, 0);
 };
 
 recDeleteSelectedBtn.addEventListener("click", async () => {
