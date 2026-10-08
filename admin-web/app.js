@@ -41,7 +41,7 @@ const firebaseConfig = {
 // Initialize Firebase Services with stable Long-Polling (prevents QUIC timeouts & stream errors)
 const app = initializeApp(firebaseConfig);
 const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true,
+  experimentalForceLongPolling: true,
   useFetchStreams: false
 });
 const auth = getAuth(app);
@@ -292,9 +292,12 @@ navItems.forEach((item) => {
 
 // --- 3. Data Sync & Telemetry ---
 async function loadAllData() {
-  await Promise.all([
-    loadRecordings(),
-    loadUsers(),
+  // 1. Instantly load core dashboard data (users & recordings)
+  loadUsers();
+  loadRecordings();
+
+  // 2. Load background telemetry without blocking main thread
+  Promise.allSettled([
     loadAuditLogs(),
     loadLicenseKeys(),
     loadDynamicLimits(),
@@ -348,6 +351,11 @@ async function loadRecordings() {
         if (data.cloudinaryPublicId) seenIds.add(data.cloudinaryPublicId);
         seenIds.add(d.id);
       });
+      // Render initial recordings immediately so admin doesn't wait
+      recordings = [...items];
+      renderRecordingsTable(recordings);
+      renderStorageMetrics(recordings);
+      dashTotalRecordings.textContent = recordings.length;
     } catch (e) {
       console.warn("Could not query cloud_recordings:", e);
     }
@@ -1155,30 +1163,37 @@ window.previewUserFile = function(fileIndex) {
   displayMediaInModal(file);
 };
 
-// Universal helper to permanently delete user media and purge from all Firestore records via atomic batch
+// Universal helper to permanently delete user media and purge from all Firestore records via atomic batch with fallback
 async function deleteUserMediaCompletely(userId, fileId, mediaId, storagePath) {
   const mId = mediaId || fileId;
   const fId = fileId || mediaId;
-  const batch = writeBatch(db);
+  const docsToDelete = [];
 
-  if (mId) batch.delete(doc(db, "cloud_recordings", mId));
-  if (fId && fId !== mId) batch.delete(doc(db, "cloud_recordings", fId));
+  if (mId) docsToDelete.push(doc(db, "cloud_recordings", mId));
+  if (fId && fId !== mId) docsToDelete.push(doc(db, "cloud_recordings", fId));
 
   if (userId) {
-    batch.delete(doc(db, "cloud_recordings", `user_${userId}_${fId}`));
-    if (mId !== fId) batch.delete(doc(db, "cloud_recordings", `user_${userId}_${mId}`));
-    batch.delete(doc(db, "users", userId, "vault_media", fId));
-    batch.delete(doc(db, "users", userId, "recordings", fId));
-    if (mId !== fId) {
-      batch.delete(doc(db, "users", userId, "vault_media", mId));
-      batch.delete(doc(db, "users", userId, "recordings", mId));
+    if (fId) {
+      docsToDelete.push(doc(db, "cloud_recordings", `user_${userId}_${fId}`));
+      docsToDelete.push(doc(db, "users", userId, "vault_media", fId));
+      docsToDelete.push(doc(db, "users", userId, "recordings", fId));
+    }
+    if (mId && mId !== fId) {
+      docsToDelete.push(doc(db, "cloud_recordings", `user_${userId}_${mId}`));
+      docsToDelete.push(doc(db, "users", userId, "vault_media", mId));
+      docsToDelete.push(doc(db, "users", userId, "recordings", mId));
     }
   }
 
+  // 1. Try batch commit
   try {
+    const batch = writeBatch(db);
+    docsToDelete.forEach(d => batch.delete(d));
     await batch.commit();
   } catch (err) {
-    console.warn("deleteUserMediaCompletely batch error:", err);
+    console.warn("deleteUserMediaCompletely batch failed, trying individual deletes:", err);
+    // 2. Fallback: Delete each document individually so missing docs do not fail the deletion
+    await Promise.allSettled(docsToDelete.map(d => deleteDoc(d).catch(() => null)));
   }
 }
 
@@ -1529,30 +1544,34 @@ function renderStorageMetrics(list) {
 async function batchDeleteMultipleRecordings(items) {
   if (!items || items.length === 0) return 0;
   let deletedCount = 0;
-  // Firestore batches support up to 500 writes. We process in chunks of 100 items (~300 operations per batch)
-  for (let i = 0; i < items.length; i += 100) {
-    const chunk = items.slice(i, i + 100);
+  // Firestore batches support up to 500 writes. We process in chunks of 50 items for optimal latency
+  for (let i = 0; i < items.length; i += 50) {
+    const chunk = items.slice(i, i + 50);
     const batch = writeBatch(db);
+    const fallbackDocs = [];
 
     for (const item of chunk) {
       const uid = item.userId || item.anonymousAccountReference;
       const mId = item.mediaId || item.id;
       const fId = item.id || item.mediaId;
 
-      if (item.id) batch.delete(doc(db, "cloud_recordings", item.id));
-      if (mId && mId !== item.id) batch.delete(doc(db, "cloud_recordings", mId));
+      if (item.id) {
+        const d = doc(db, "cloud_recordings", item.id);
+        batch.delete(d);
+        fallbackDocs.push(d);
+      }
+      if (mId && mId !== item.id) {
+        const d = doc(db, "cloud_recordings", mId);
+        batch.delete(d);
+        fallbackDocs.push(d);
+      }
 
-      if (uid) {
-        if (fId) {
-          batch.delete(doc(db, "cloud_recordings", `user_${uid}_${fId}`));
-          batch.delete(doc(db, "users", uid, "vault_media", fId));
-          batch.delete(doc(db, "users", uid, "recordings", fId));
-        }
-        if (mId && mId !== fId) {
-          batch.delete(doc(db, "cloud_recordings", `user_${uid}_${mId}`));
-          batch.delete(doc(db, "users", uid, "vault_media", mId));
-          batch.delete(doc(db, "users", uid, "recordings", mId));
-        }
+      if (uid && fId) {
+        const d1 = doc(db, "cloud_recordings", `user_${uid}_${fId}`);
+        const d2 = doc(db, "users", uid, "vault_media", fId);
+        const d3 = doc(db, "users", uid, "recordings", fId);
+        batch.delete(d1); batch.delete(d2); batch.delete(d3);
+        fallbackDocs.push(d1, d2, d3);
       }
       deletedCount++;
     }
@@ -1560,7 +1579,8 @@ async function batchDeleteMultipleRecordings(items) {
     try {
       await batch.commit();
     } catch (batchErr) {
-      console.warn("Batch commit warning:", batchErr);
+      console.warn("Chunk batch commit failed, falling back to individual deletes:", batchErr);
+      await Promise.allSettled(fallbackDocs.map(d => deleteDoc(d).catch(() => null)));
     }
   }
   return deletedCount;
@@ -1611,12 +1631,20 @@ executePurgeBtn.addEventListener("click", async () => {
   executePurgeBtn.disabled = true;
 
   try {
-    const deletedCount = await batchDeleteMultipleRecordings(recordings);
+    const toDelete = [...recordings];
+    // Immediate UI update so user sees instant feedback
+    recordings = [];
+    renderRecordingsTable([]);
+    renderStorageMetrics([]);
+    dashTotalRecordings.textContent = "0";
+
+    const deletedCount = await batchDeleteMultipleRecordings(toDelete);
     showToast(`Purged ${deletedCount} recordings! 100% of space freed.`);
     recordAuditLog("PURGE_ALL_RECORDINGS", "Firebase Storage", { count: deletedCount });
     await loadRecordings();
   } catch (err) {
     showToast("Purge failed: " + err.message);
+    await loadRecordings();
   } finally {
     executePurgeBtn.disabled = false;
   }
@@ -1626,6 +1654,16 @@ executePurgeBtn.addEventListener("click", async () => {
 async function deleteSingleRecordingInternal(item) {
   const uid = item.userId || item.anonymousAccountReference;
   const path = item.cloudStoragePath || item.storagePath;
+
+  // Immediate UI removal for instant feedback
+  const idx = recordings.findIndex((r) => r.id === item.id);
+  if (idx !== -1) {
+    recordings.splice(idx, 1);
+    renderRecordingsTable(filterRecordings());
+    renderStorageMetrics(recordings);
+    dashTotalRecordings.textContent = recordings.length;
+  }
+
   await deleteUserMediaCompletely(uid, item.id, item.mediaId || item.id, path);
 }
 
