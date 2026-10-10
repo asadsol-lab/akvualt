@@ -10,7 +10,7 @@ app/build/
 # Gradle
 .gradle/
 local.properties
-gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.jar
 
 # IDE files
 .idea/
