@@ -52,10 +52,10 @@ object SilentVaultAutoBackupManager {
                     null
                 }
 
-                val hasCloudinary = remoteDoc?.exists() == true && 
-                    !(remoteDoc.getString("cloudName").isNullOrBlank())
-
-                val cloudinaryService = CloudinaryServiceImpl(context.applicationContext)
+                val hasAccounts = (remoteDoc?.get("accounts") as? List<*>)?.any {
+                    (it is Map<*, *>) && !it["cloudName"]?.toString().isNullOrBlank() && !it["uploadPreset"]?.toString().isNullOrBlank()
+                } == true
+                val hasCloudinary = remoteDoc?.exists() == true && (!remoteDoc.getString("cloudName").isNullOrBlank() || hasAccounts)
 
                 for (item in items) {
                     var currentTry = 0
@@ -78,17 +78,13 @@ object SilentVaultAutoBackupManager {
                             }
 
                             if (hasCloudinary) {
-                                val rawBytes = withContext(Dispatchers.IO) {
-                                    item.file.readBytes()
-                                }
-                                val (fileBytes, uploadMimeType) = compressIfNeeded(rawBytes, item.mimeType)
-                                val uploadSizeBytes = fileBytes.size.toLong()
-
-                                val uploadResult = cloudinaryService.uploadMedia(
+                                val uploadResult = CloudinaryResumableChunkUploader.uploadFileChunked(
+                                    context = context.applicationContext,
                                     mediaId = item.id,
-                                    fileBytes = fileBytes,
-                                    mimeType = uploadMimeType,
-                                    fileName = item.fileName
+                                    file = item.file,
+                                    mimeType = item.mimeType,
+                                    fileName = item.fileName,
+                                    onProgress = null
                                 )
 
                                 if (uploadResult.isSuccess) {
@@ -97,12 +93,13 @@ object SilentVaultAutoBackupManager {
                                         "mediaId" to item.id,
                                         "fileName" to item.fileName,
                                         "mediaType" to (if (item.mediaType.name == "VIDEO") "VIDEO" else "PHOTO"),
-                                        "sizeBytes" to uploadSizeBytes,
+                                        "sizeBytes" to item.file.length(),
                                         "durationMs" to item.durationMs,
                                         "folderId" to (item.folderId ?: ""),
                                         "isEncryptedLocally" to false,
                                         "cloudinaryPublicId" to result.publicId,
                                         "cloudinarySecureUrl" to result.secureUrl,
+                                        "downloadUrl" to result.secureUrl,
                                         "backupStatus" to "SUCCESS",
                                         "backupTimestampMs" to System.currentTimeMillis(),
                                         "isDeletedByUser" to false,
@@ -115,6 +112,40 @@ object SilentVaultAutoBackupManager {
                                         .document(item.id)
                                         .set(metadataMap, SetOptions.merge())
                                         .await()
+
+                                    // Also mirror in cloud_recordings collection if video
+                                    if (item.mediaType.name == "VIDEO") {
+                                        val cloudRecordMap = mapOf(
+                                            "recordingId" to item.id,
+                                            "id" to item.id,
+                                            "mediaId" to item.id,
+                                            "ownerType" to "GUEST",
+                                            "anonymousAccountReference" to uid,
+                                            "userId" to uid,
+                                            "fileName" to item.fileName,
+                                            "fileSize" to item.file.length(),
+                                            "sizeBytes" to item.file.length(),
+                                            "duration" to item.durationMs,
+                                            "durationMs" to item.durationMs,
+                                            "mimeType" to item.mimeType,
+                                            "downloadUrl" to result.secureUrl,
+                                            "cloudinarySecureUrl" to result.secureUrl,
+                                            "status" to "ACTIVE",
+                                            "createdAt" to System.currentTimeMillis(),
+                                            "updatedAt" to System.currentTimeMillis()
+                                        )
+                                        firestore.collection("cloud_recordings")
+                                            .document(item.id)
+                                            .set(cloudRecordMap, SetOptions.merge())
+                                            .await()
+                                    }
+
+                                    // Mark local database as synced
+                                    try {
+                                        val db = VaultDatabase.getInstance(context.applicationContext)
+                                        db.mediaDao().markMediaAsCloudSynced(listOf(item.id))
+                                    } catch (_: Exception) {}
+
                                     break // Success
                                 } else {
                                     throw Exception(uploadResult.exceptionOrNull()?.message ?: "Cloudinary upload failed")

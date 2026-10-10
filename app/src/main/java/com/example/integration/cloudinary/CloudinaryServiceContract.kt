@@ -19,6 +19,16 @@ interface CloudinaryServiceContract {
         fileName: String = ""
     ): Result<CloudinaryUploadResult>
 
+    /**
+     * Stream a File directly to Cloudinary with zero RAM overhead (immune to OutOfMemoryError).
+     */
+    suspend fun uploadFile(
+        mediaId: String,
+        file: java.io.File,
+        mimeType: String,
+        fileName: String = ""
+    ): Result<CloudinaryUploadResult>
+
     suspend fun uploadEncryptedMedia(
         mediaId: String,
         encryptedFileBytes: ByteArray,

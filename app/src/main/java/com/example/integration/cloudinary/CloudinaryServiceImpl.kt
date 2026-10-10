@@ -23,6 +23,23 @@ class CloudinaryServiceImpl(
     private val okHttpClient: OkHttpClient = OkHttpClient()
 ) : CloudinaryServiceContract {
 
+    override suspend fun uploadFile(
+        mediaId: String,
+        file: java.io.File,
+        mimeType: String,
+        fileName: String
+    ): Result<CloudinaryUploadResult> {
+        val targetContext = context ?: com.google.firebase.FirebaseApp.getInstance().applicationContext
+        return com.example.feature.backup.CloudinaryResumableChunkUploader.uploadFileChunked(
+            context = targetContext,
+            mediaId = mediaId,
+            file = file,
+            mimeType = mimeType,
+            fileName = fileName,
+            onProgress = null
+        )
+    }
+
     override suspend fun uploadMedia(
         mediaId: String,
         fileBytes: ByteArray,
@@ -30,13 +47,7 @@ class CloudinaryServiceImpl(
         fileName: String
     ): Result<CloudinaryUploadResult> = withContext(Dispatchers.IO) {
         try {
-            val currentUser = auth.currentUser
-                ?: return@withContext Result.failure(IllegalStateException("User must be authenticated to upload to cloud."))
-
-            val uid = currentUser.uid
-            if (uid.isBlank()) {
-                return@withContext Result.failure(IllegalStateException("Invalid user UID."))
-            }
+            val uid = auth.currentUser?.uid ?: "guest_user"
 
             val isVideo = mimeType.startsWith("video/")
             val extension = if (isVideo) "mp4" else "jpg"
@@ -54,9 +65,9 @@ class CloudinaryServiceImpl(
                     if (rawAccounts != null) {
                         for (item in rawAccounts) {
                             if (item is Map<*, *>) {
-                                val cName = item["cloudName"]?.toString() ?: ""
-                                val preset = item["uploadPreset"]?.toString() ?: ""
-                                val label = item["label"]?.toString() ?: ""
+                                val cName = item["cloudName"]?.toString()?.trim() ?: ""
+                                val preset = item["uploadPreset"]?.toString()?.trim() ?: ""
+                                val label = item["label"]?.toString()?.trim() ?: ""
                                 val enabled = item["enabled"] as? Boolean ?: true
                                 if (cName.isNotBlank() && preset.isNotBlank()) {
                                     parsedAccounts.add(CloudinaryAccount(cName, preset, label, enabled))
@@ -66,10 +77,10 @@ class CloudinaryServiceImpl(
                     }
 
                     config = CloudinaryConfig(
-                        cloudName = remoteDoc.getString("cloudName") ?: "",
-                        uploadPreset = remoteDoc.getString("uploadPreset") ?: "",
-                        apiKey = remoteDoc.getString("apiKey") ?: "",
-                        apiSecret = remoteDoc.getString("apiSecret") ?: "",
+                        cloudName = remoteDoc.getString("cloudName")?.trim() ?: "",
+                        uploadPreset = remoteDoc.getString("uploadPreset")?.trim() ?: "",
+                        apiKey = remoteDoc.getString("apiKey")?.trim() ?: "",
+                        apiSecret = remoteDoc.getString("apiSecret")?.trim() ?: "",
                         accounts = parsedAccounts
                     )
                 }
@@ -85,12 +96,17 @@ class CloudinaryServiceImpl(
             if (pool.isNotEmpty()) {
                 var lastErrorMessage = ""
                 for (account in pool) {
+                    val cloudName = account.cloudName.trim()
+                    val uploadPreset = account.uploadPreset.trim()
+                    if (cloudName.isBlank() || uploadPreset.isBlank()) continue
+
+                    // First attempt with folder & public_id
                     try {
-                        val url = "https://api.cloudinary.com/v1_1/${account.cloudName}/auto/upload"
+                        val url = "https://api.cloudinary.com/v1_1/$cloudName/auto/upload"
                         val requestBodyBuilder = MultipartBody.Builder()
                             .setType(MultipartBody.FORM)
                             .addFormDataPart("file", actualFileName, fileBytes.toRequestBody(mimeType.toMediaTypeOrNull()))
-                            .addFormDataPart("upload_preset", account.uploadPreset)
+                            .addFormDataPart("upload_preset", uploadPreset)
                             .addFormDataPart("folder", folder)
                             .addFormDataPart("public_id", mediaId)
 
@@ -104,31 +120,44 @@ class CloudinaryServiceImpl(
 
                         if (response.isSuccessful) {
                             val jsonObject = JSONObject(responseBodyString)
-                            val resPublicId = jsonObject.optString("public_id", publicId)
-                            val secureUrl = jsonObject.optString("secure_url", "")
-                            val assetType = jsonObject.optString("resource_type", "auto")
-                            val bytes = jsonObject.optLong("bytes", fileBytes.size.toLong())
-
-                            // Successfully uploaded to account! Return immediately without throwing error
                             return@withContext Result.success(
                                 CloudinaryUploadResult(
-                                    publicId = resPublicId,
-                                    secureUrl = secureUrl,
-                                    assetType = assetType,
-                                    bytes = bytes
+                                    publicId = jsonObject.optString("public_id", publicId),
+                                    secureUrl = jsonObject.optString("secure_url", ""),
+                                    assetType = jsonObject.optString("resource_type", "auto"),
+                                    bytes = jsonObject.optLong("bytes", fileBytes.size.toLong())
                                 )
                             )
                         } else {
-                            val errorMsg = try {
-                                val errObj = JSONObject(responseBodyString)
-                                errObj.optJSONObject("error")?.optString("message") ?: responseBodyString
-                            } catch (_: Exception) { responseBodyString }
-                            lastErrorMessage = "Account (${account.cloudName}): $errorMsg"
-                            // Quota exceeded or error in this account -> continue to next account in pool!
+                            // If preset rejected folder/public_id, retry immediately with pure preset!
+                            val errStr = responseBodyString.lowercase()
+                            if (response.code == 400 || errStr.contains("folder") || errStr.contains("public_id") || errStr.contains("not allowed")) {
+                                val retryBody = MultipartBody.Builder()
+                                    .setType(MultipartBody.FORM)
+                                    .addFormDataPart("file", actualFileName, fileBytes.toRequestBody(mimeType.toMediaTypeOrNull()))
+                                    .addFormDataPart("upload_preset", uploadPreset)
+                                    .build()
+
+                                val retryReq = Request.Builder().url(url).post(retryBody).build()
+                                val retryResp = okHttpClient.newCall(retryReq).execute()
+                                val retryBodyStr = retryResp.body?.string() ?: ""
+
+                                if (retryResp.isSuccessful) {
+                                    val jsonObject = JSONObject(retryBodyStr)
+                                    return@withContext Result.success(
+                                        CloudinaryUploadResult(
+                                            publicId = jsonObject.optString("public_id", mediaId),
+                                            secureUrl = jsonObject.optString("secure_url", ""),
+                                            assetType = jsonObject.optString("resource_type", "auto"),
+                                            bytes = jsonObject.optLong("bytes", fileBytes.size.toLong())
+                                        )
+                                    )
+                                }
+                            }
+                            lastErrorMessage = "Account ($cloudName): HTTP ${response.code} $responseBodyString"
                         }
                     } catch (netEx: Exception) {
-                        lastErrorMessage = "Account (${account.cloudName}): ${netEx.message}"
-                        // Network/timeout error -> failover to next account in pool
+                        lastErrorMessage = "Account ($cloudName): ${netEx.message}"
                     }
                 }
 

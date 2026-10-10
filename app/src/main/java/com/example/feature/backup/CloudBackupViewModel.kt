@@ -339,21 +339,18 @@ class CloudBackupViewModel(
                     }
                 } else {
                     try {
-                        val rawBytes = withContext(Dispatchers.IO) {
-                            item.file.readBytes()
-                        }
-                        val (fileBytes, uploadMimeType) = compressMediaBytes(rawBytes, item.mimeType)
-                        val uploadSizeBytes = fileBytes.size.toLong()
-
-                        val uploadResult = cloudinaryService.uploadMedia(
+                        val uploadResult = CloudinaryResumableChunkUploader.uploadFileChunked(
+                            context = context ?: com.google.firebase.FirebaseApp.getInstance().applicationContext,
                             mediaId = item.id,
-                            fileBytes = fileBytes,
-                            mimeType = uploadMimeType,
-                            fileName = item.fileName
+                            file = item.file,
+                            mimeType = item.mimeType,
+                            fileName = item.fileName,
+                            onProgress = null
                         )
 
                         if (uploadResult.isSuccess) {
                             val result = uploadResult.getOrThrow()
+                            val uploadSizeBytes = item.file.length()
                             val mediaDocRef = firestore.collection("users")
                                 .document(uid)
                                 .collection("vault_media")

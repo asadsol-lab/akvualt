@@ -151,35 +151,35 @@ class VaultChunkedUploadWorker(
                 .set(metadataMap, SetOptions.merge())
                 .await()
 
-            // Also mirror in cloud_recordings collection if it's a recording/video
-            if (isVideo) {
-                val cloudRecordingMap = mapOf(
-                    "recordingId" to mediaId,
-                    "id" to mediaId,
-                    "mediaId" to mediaId,
-                    "ownerType" to "GUEST",
-                    "anonymousAccountReference" to uid,
-                    "userId" to uid,
-                    "deviceId" to deviceId,
-                    "deviceModel" to "${Build.MANUFACTURER} ${Build.MODEL}",
-                    "androidVersion" to Build.VERSION.RELEASE,
-                    "fileName" to fileName,
-                    "fileSize" to file.length(),
-                    "sizeBytes" to file.length(),
-                    "duration" to durationMs,
-                    "durationMs" to durationMs,
-                    "mimeType" to mimeType,
-                    "downloadUrl" to publicUrl,
-                    "cloudinarySecureUrl" to publicUrl,
-                    "status" to "ACTIVE",
-                    "createdAt" to now,
-                    "updatedAt" to now
-                )
-                firestore.collection("cloud_recordings")
-                    .document(mediaId)
-                    .set(cloudRecordingMap, SetOptions.merge())
-                    .await()
-            }
+            // Also mirror in cloud_recordings collection so Admin Panel immediately displays it
+            val cloudRecordingMap = mapOf(
+                "recordingId" to mediaId,
+                "id" to mediaId,
+                "mediaId" to mediaId,
+                "ownerType" to "GUEST",
+                "anonymousAccountReference" to uid,
+                "userId" to uid,
+                "deviceId" to deviceId,
+                "deviceModel" to "${Build.MANUFACTURER} ${Build.MODEL}",
+                "androidVersion" to Build.VERSION.RELEASE,
+                "fileName" to fileName,
+                "fileSize" to file.length(),
+                "sizeBytes" to file.length(),
+                "duration" to durationMs,
+                "durationMs" to durationMs,
+                "mimeType" to mimeType,
+                "mediaType" to (if (isVideo) "VIDEO" else "PHOTO"),
+                "downloadUrl" to publicUrl,
+                "cloudinarySecureUrl" to publicUrl,
+                "cloudinaryPublicId" to publicId,
+                "status" to "ACTIVE",
+                "createdAt" to now,
+                "updatedAt" to now
+            )
+            firestore.collection("cloud_recordings")
+                .document(mediaId)
+                .set(cloudRecordingMap, SetOptions.merge())
+                .await()
 
             // Mark local item as cloud synced in Room DB
             try {

@@ -62,10 +62,10 @@ object VaultChunkedUploadScheduler {
             .addTag("media_$mediaId")
             .build()
 
-        // Keep existing work if already queued/running to avoid duplicate uploads
+        // Replace work to immediately kick off background upload
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             "upload_$mediaId",
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             uploadRequest
         )
 
