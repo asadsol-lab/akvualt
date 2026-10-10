@@ -1271,10 +1271,23 @@ window.previewUserFile = function(fileIndex) {
 async function deleteUserMediaCompletely(userId, fileId, mediaId, storagePath) {
   const mId = mediaId || fileId;
   const fId = fileId || mediaId;
-  const docsToDelete = [];
+  
+  // 1. Attempt Cloudinary Deletion via Cloud Function
+  if (mId && mId.startsWith("users/")) {
+    try {
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js");
+      const deleteAsset = httpsCallable(getFunctions(app), "deleteCloudinaryAsset");
+      await deleteAsset({ publicId: mId });
+    } catch (e) {
+      console.warn("Cloudinary asset deletion failed (might already be deleted):", e);
+    }
+  }
 
+  const docsToDelete = [];
   if (mId) docsToDelete.push(doc(db, "cloud_recordings", mId));
   if (fId && fId !== mId) docsToDelete.push(doc(db, "cloud_recordings", fId));
+  
+  // ... (rest of batch logic remains same)
 
   if (userId) {
     if (fId) {
