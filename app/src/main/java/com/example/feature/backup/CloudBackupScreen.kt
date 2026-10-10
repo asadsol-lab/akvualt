@@ -9,9 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Refresh
@@ -66,8 +64,8 @@ fun CloudBackupScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Default.Cloud,
-                            contentDescription = null,
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Secure Status",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
@@ -173,8 +171,8 @@ fun CloudBackupScreen(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        imageVector = Icons.Default.Cloud,
-                                        contentDescription = null,
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = "Secure Status",
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp)
                                     )
@@ -350,7 +348,7 @@ fun CloudBackupScreen(
                                     .fillMaxWidth()
                                     .testTag("btn_start_backup")
                             ) {
-                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(if (uiState.isBackingUp) "Backing Up..." else "Backup Now")
                             }
@@ -432,7 +430,7 @@ fun CloudBackupScreen(
                                         .fillMaxWidth()
                                         .testTag("btn_start_restore")
                                 ) {
-                                    Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(if (uiState.isRestoring) "Restoring..." else "Restore All Cloud Media")
                                 }
@@ -588,7 +586,7 @@ fun CloudBackupScreen(
                                         enabled = !uiState.isRestoring
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.CloudDownload,
+                                            imageVector = Icons.Default.Refresh,
                                             contentDescription = "Restore Item",
                                             tint = MaterialTheme.colorScheme.primary
                                         )

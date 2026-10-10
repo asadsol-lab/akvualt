@@ -16,7 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -77,7 +77,7 @@ fun MediaThumbnailItem(
         // Cloud Sync Badge (Shows item is safely backed up in the cloud)
         if (item.isCloudSynced) {
             Surface(
-                color = Color(0xFF0284C7).copy(alpha = 0.9f),
+                color = Color(0xFFEF4444).copy(alpha = 0.9f), // Red background
                 shape = CircleShape,
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -86,8 +86,8 @@ fun MediaThumbnailItem(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Default.CloudDone,
-                        contentDescription = "Backed up to cloud",
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Secured in Vault",
                         tint = Color.White,
                         modifier = Modifier.size(12.dp)
                     )
