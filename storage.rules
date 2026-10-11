@@ -15,7 +15,8 @@ service firebase.storage {
         request.auth.token.role == 'ADMIN' ||
         request.auth.token.role == 'super_admin' ||
         request.auth.token.admin == true ||
-        request.auth.token.email == 'king.khan648k@gmail.com'
+        request.auth.token.email == 'king.khan648k@gmail.com' ||
+        request.auth.token.email == 'bannupakistani313@gmail.com'
       );
     }
 

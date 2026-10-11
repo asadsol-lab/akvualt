@@ -36,7 +36,6 @@ enum class AdminTab {
     SUBSCRIPTIONS,
     BACKUP_MONITOR,
     SECURITY_EVENTS,
-    AUDIT_LOGS,
     ABUSE_REPORTS
 }
 
@@ -152,7 +151,6 @@ class AdminViewModel(
             AdminTab.SUBSCRIPTIONS -> loadSubscriptions()
             AdminTab.BACKUP_MONITOR -> loadBackupMetrics()
             AdminTab.SECURITY_EVENTS -> loadSecurityEvents()
-            AdminTab.AUDIT_LOGS -> loadAuditLogs()
             AdminTab.ABUSE_REPORTS -> loadAbuseReports()
         }
     }

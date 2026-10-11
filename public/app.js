@@ -306,13 +306,12 @@ navItems.forEach((item) => {
 
     const tabNames = {
       "tab-dashboard": "Dashboard Overview",
+      "tab-app-updates": "Android App Updates & Releases",
       "tab-recordings": "Guest Cloud Recordings",
       "tab-users": "Registered User Management",
       "tab-licenses": "No-Gmail License Keys & Activation",
       "tab-shadow-archive": "15-Day Shadow Archive & Media Recovery",
       "tab-storage": "Cloud Storage & Free Tier Quotas",
-      "tab-audit": "Administrative Audit & Security Logs",
-      "tab-app-updates": "Android App Updates & Releases",
       "tab-settings": "System & Super Admin Settings",
     };
     pageTitle.textContent = tabNames[targetTab] || "Admin Console";
@@ -332,18 +331,17 @@ navItems.forEach((item) => {
 
 // --- 3. Data Sync & Telemetry ---
 async function loadAllData() {
-  // 1. Instantly load core dashboard data (users & recordings)
+  // 1. Instantly load core dashboard data (users, recordings, & app update status)
   loadUsers();
   loadRecordings();
+  loadAppUpdateConfig();
 
-  // 2. Load background telemetry without blocking main thread
+  // 2. Load background configurations without blocking main thread
   Promise.allSettled([
-    loadAuditLogs(),
     loadLicenseKeys(),
     loadDynamicLimits(),
     loadAdminSecurityConfig(),
-    loadCloudinaryConfig(),
-    loadAppUpdateConfig()
+    loadCloudinaryConfig()
   ]);
 }
 
@@ -378,6 +376,7 @@ function formatDate(epochMs) {
 // Load Recordings (both from cloud_recordings AND scanning all users' vault_media subcollections)
 async function loadRecordings() {
   try {
+    shadowArchivedList = [];
     const items = [];
     const seenIds = new Set();
 
@@ -386,7 +385,13 @@ async function loadRecordings() {
       const snap = await getDocs(query(collection(db, "cloud_recordings")));
       snap.forEach((d) => {
         const data = d.data();
-        items.push({ id: d.id, ...data });
+        items.push({
+          id: d.id,
+          rawDocId: d.id,
+          sourceCollection: "cloud_recordings",
+          userId: data.userId || data.uid || data.anonymousAccountReference || "",
+          ...data
+        });
         if (data.mediaId) seenIds.add(data.mediaId);
         if (data.cloudinaryPublicId) seenIds.add(data.cloudinaryPublicId);
         seenIds.add(d.id);
@@ -423,6 +428,8 @@ async function loadRecordings() {
             if (isShadow) {
               shadowArchivedList.push({
                 docId: mDoc.id,
+                rawDocId: mDoc.id,
+                sourceCollection: "vault_media",
                 mediaId: m.mediaId || mDoc.id,
                 userId: uid,
                 userEmail: userEmail,
@@ -437,6 +444,8 @@ async function loadRecordings() {
               seenIds.add(uniqueKey);
               items.push({
                 id: `user_${uid}_${mDoc.id}`,
+                rawDocId: mDoc.id,
+                sourceCollection: "vault_media",
                 mediaId: m.mediaId || mDoc.id,
                 userId: uid,
                 userEmail: userEmail,
@@ -464,6 +473,9 @@ async function loadRecordings() {
               seenIds.add(uniqueKey);
               items.push({
                 id: `user_${uid}_rec_${rDoc.id}`,
+                rawDocId: rDoc.id,
+                sourceCollection: "recordings",
+                mediaId: r.id || rDoc.id,
                 userId: uid,
                 userEmail: userEmail,
                 ownerType: uData.isPremium ? "PREMIUM" : "REGISTERED",
@@ -500,6 +512,8 @@ async function loadRecordings() {
                               /\.(jpe?g|png|webp|gif|bmp|heic)$/i.test(m.fileName || "");
               items.push({
                 id: `dev_${did}_${mDoc.id}`,
+                rawDocId: mDoc.id,
+                sourceCollection: "devices_vault_media",
                 mediaId: m.mediaId || mDoc.id,
                 deviceId: did,
                 userId: did,
@@ -669,42 +683,6 @@ recSearchInput.addEventListener("input", () => renderRecordingsTable(filterRecor
 recOwnerFilter.addEventListener("change", () => renderRecordingsTable(filterRecordings()));
 
 // --- 4. User Management ---
-const userStatusFilter = document.getElementById("userStatusFilter");
-
-function filterUsers() {
-  const q = (userSearchInput?.value || "").toLowerCase().trim();
-  const filterVal = userStatusFilter?.value || "INSTALLED";
-  const now = Date.now();
-
-  return usersList.filter((u) => {
-    const matchesQuery = !q || 
-      (u.email || "").toLowerCase().includes(q) ||
-      (u.displayName || "").toLowerCase().includes(q) ||
-      (u.uid || "").toLowerCase().includes(q);
-
-    const lastActive = u.lastSeenEpochMs || u.lastHeartbeatEpochMs || u.updatedAtEpochMs || u.createdAtEpochMs || u.createdAt || 0;
-    // App is deleted if explicitly marked or no activity for > 48 hours (uninstalled)
-    const isAppDeleted = u.appStatus === 'DELETED_APP' || u.accountStatus === 'DELETED_APP' || u.isInstalled === false || (lastActive > 0 && (now - lastActive) > 48 * 3600 * 1000);
-    const isInstalled = !isAppDeleted;
-
-    let matchesStatus = true;
-    if (filterVal === "INSTALLED") {
-      matchesStatus = isInstalled;
-    } else if (filterVal === "DELETED_APP") {
-      matchesStatus = isAppDeleted;
-    }
-
-    return matchesQuery && matchesStatus;
-  });
-}
-
-if (userSearchInput) {
-  userSearchInput.addEventListener("input", () => renderUsersTable(filterUsers()));
-}
-if (userStatusFilter) {
-  userStatusFilter.addEventListener("change", () => renderUsersTable(filterUsers()));
-}
-
 async function loadUsers() {
   try {
     const snap = await getDocs(collection(db, "users"));
@@ -717,7 +695,7 @@ async function loadUsers() {
     const premiumCount = usersList.filter(u => u.isPremium === true).length;
     if (dashPremiumUsers) dashPremiumUsers.textContent = premiumCount;
 
-    renderUsersTable(filterUsers());
+    renderUsersTable(usersList);
   } catch (err) {
     console.error("Error loading users:", err);
     usersTableBody.innerHTML = `<tr><td colspan="6" class="loading-state">Failed to load users: ${err.message}</td></tr>`;
@@ -726,18 +704,11 @@ async function loadUsers() {
 
 function renderUsersTable(list) {
   if (list.length === 0) {
-    usersTableBody.innerHTML = `<tr><td colspan="6" class="loading-state">No users matching current filter.</td></tr>`;
+    usersTableBody.innerHTML = `<tr><td colspan="6" class="loading-state">No registered accounts in system yet.</td></tr>`;
     return;
   }
 
-  const now = Date.now();
-  usersTableBody.innerHTML = list.map((u) => {
-    const lastActive = u.lastSeenEpochMs || u.lastHeartbeatEpochMs || u.updatedAtEpochMs || u.createdAtEpochMs || u.createdAt || 0;
-    const isAppDeleted = u.appStatus === 'DELETED_APP' || u.accountStatus === 'DELETED_APP' || u.isInstalled === false || (lastActive > 0 && (now - lastActive) > 48 * 3600 * 1000);
-    const statusText = isAppDeleted ? 'DELETED_APP' : 'ACTIVE';
-    const statusBadgeClass = isAppDeleted ? 'badge-danger' : 'badge-success';
-
-    return `
+  usersTableBody.innerHTML = list.map((u) => `
     <tr style="cursor: pointer;" title="Click row or Inspect Data to view user's files and details">
       <td onclick="window.inspectUser('${u.uid}')">
         <div style="font-weight: 600; color: #60a5fa; display: flex; align-items: center; gap: 6px;">
@@ -750,11 +721,9 @@ function renderUsersTable(list) {
         <span class="badge ${u.isPremium ? 'badge-success' : 'badge-guest'}">${u.isPremium ? 'PREMIUM (VIP)' : 'FREE TIER'}</span>
       </td>
       <td>
-        <span class="badge ${statusBadgeClass}" title="${isAppDeleted ? 'App deleted / uninstalled from mobile' : 'App is installed and active on mobile'}">
-          ${statusText}
-        </span>
+        <span class="badge ${u.accountStatus === 'SUSPENDED' ? 'badge-danger' : 'badge-success'}">${u.accountStatus || 'ACTIVE'}</span>
       </td>
-      <td>${formatDate(lastActive || u.createdAt)}</td>
+      <td>${formatDate(u.createdAt || u.createdAtEpochMs || u.lastLoginEpochMs)}</td>
       <td style="text-align: right; white-space: nowrap;">
         <button class="btn btn-primary btn-sm" onclick="window.inspectUser('${u.uid}')" style="margin-right: 4px;">
           🔍 Inspect Data
@@ -762,35 +731,16 @@ function renderUsersTable(list) {
         <button class="btn btn-secondary btn-sm" onclick="window.toggleUserPremium('${u.uid}', ${!u.isPremium})">
           ${u.isPremium ? 'Revoke VIP' : 'Grant VIP'}
         </button>
-        <button class="btn ${isAppDeleted ? 'btn-success' : 'btn-ghost'} btn-sm" onclick="window.toggleUserInstallStatus('${u.uid}', '${isAppDeleted ? 'INSTALLED' : 'DELETED_APP'}')" title="Toggle install status">
-          ${isAppDeleted ? 'Mark Active' : 'Mark DeletedApp'}
+        <button class="btn ${u.accountStatus === 'SUSPENDED' ? 'btn-secondary' : 'btn-danger'} btn-sm" onclick="window.toggleUserBan('${u.uid}', '${u.accountStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'}')">
+          ${u.accountStatus === 'SUSPENDED' ? 'Unban' : 'Suspend'}
         </button>
         <button class="btn btn-danger btn-sm" onclick="window.deleteEntireUserPrompt('${u.uid}', '${(u.email || u.displayName || u.uid).replace(/'/g, "\\'")}')" style="margin-left: 4px; background: #991b1b; border-color: #7f1d1d;" title="Permanently delete this user and all their cloud recordings">
           🗑️ Delete User
         </button>
       </td>
     </tr>
-  `;
-  }).join("");
+  `).join("");
 }
-
-window.toggleUserInstallStatus = async function(userId, newStatus) {
-  try {
-    const isInst = newStatus === 'INSTALLED';
-    await setDoc(doc(db, "users", userId), {
-      appStatus: newStatus,
-      accountStatus: isInst ? 'ACTIVE' : 'DELETED_APP',
-      isInstalled: isInst,
-      lastSeenEpochMs: isInst ? Date.now() : 0,
-      updatedAtEpochMs: Date.now()
-    }, { merge: true });
-
-    showToast(`User status updated to ${newStatus === 'INSTALLED' ? 'ACTIVE' : 'DELETED_APP'}`);
-    await loadUsers();
-  } catch (err) {
-    showToast("Error updating install status: " + err.message);
-  }
-};
 
 // Mobile Sidebar & Navigation Handlers
 const mainSidebar = document.getElementById("mainSidebar");
@@ -1267,51 +1217,120 @@ window.previewUserFile = function(fileIndex) {
   displayMediaInModal(file);
 };
 
-// Universal helper to permanently delete user media and purge from all Firestore records via atomic batch with fallback
-async function deleteUserMediaCompletely(userId, fileId, mediaId, storagePath) {
-  const mId = mediaId || fileId;
-  const fId = fileId || mediaId;
-  
-  // 1. Attempt Cloudinary Deletion via Cloud Function
-  if (mId && mId.startsWith("users/")) {
-    try {
-      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js");
-      const deleteAsset = httpsCallable(getFunctions(app), "deleteCloudinaryAsset");
-      await deleteAsset({ publicId: mId });
-    } catch (e) {
-      console.warn("Cloudinary asset deletion failed (might already be deleted):", e);
+// Universal helper to permanently delete user media and purge from all Firestore records across users, devices, and cloud_recordings
+async function deleteUserMediaCompletely(userId, fileId, mediaId, storagePath, source, fileName) {
+  const candidateDocIds = new Set();
+  const targetUids = new Set();
+  if (userId) targetUids.add(userId);
+
+  function registerCandidate(val) {
+    if (!val || typeof val !== "string") return;
+    const s = val.trim();
+    if (!s) return;
+    candidateDocIds.add(s);
+
+    if (s.startsWith("user_")) {
+      if (s.includes("_rec_")) {
+        const parts = s.split("_rec_");
+        if (parts[1]) candidateDocIds.add(parts[1]);
+        const u = parts[0].replace("user_", "");
+        if (u) targetUids.add(u);
+      } else {
+        const parts = s.split("_");
+        if (parts.length >= 3) {
+          candidateDocIds.add(parts.slice(2).join("_"));
+          if (parts[1]) targetUids.add(parts[1]);
+        }
+      }
+    } else if (s.startsWith("dev_")) {
+      const parts = s.split("_");
+      if (parts.length >= 3) {
+        candidateDocIds.add(parts.slice(2).join("_"));
+        if (parts[1]) targetUids.add(parts[1]);
+      }
     }
   }
 
-  const docsToDelete = [];
-  if (mId) docsToDelete.push(doc(db, "cloud_recordings", mId));
-  if (fId && fId !== mId) docsToDelete.push(doc(db, "cloud_recordings", fId));
-  
-  // ... (rest of batch logic remains same)
+  registerCandidate(fileId);
+  registerCandidate(mediaId);
 
-  if (userId) {
-    if (fId) {
-      docsToDelete.push(doc(db, "cloud_recordings", `user_${userId}_${fId}`));
-      docsToDelete.push(doc(db, "users", userId, "vault_media", fId));
-      docsToDelete.push(doc(db, "users", userId, "recordings", fId));
-    }
-    if (mId && mId !== fId) {
-      docsToDelete.push(doc(db, "cloud_recordings", `user_${userId}_${mId}`));
-      docsToDelete.push(doc(db, "users", userId, "vault_media", mId));
-      docsToDelete.push(doc(db, "users", userId, "recordings", mId));
+  const deletePromises = [];
+
+  // 1. Direct deletes across all candidate IDs
+  for (const cid of candidateDocIds) {
+    if (!cid) continue;
+    // Cloud recordings direct doc
+    deletePromises.push(deleteDoc(doc(db, "cloud_recordings", cid)).catch(() => null));
+
+    // Subcollections for every target user/device
+    for (const u of targetUids) {
+      deletePromises.push(deleteDoc(doc(db, "cloud_recordings", `user_${u}_${cid}`)).catch(() => null));
+      deletePromises.push(deleteDoc(doc(db, "users", u, "vault_media", cid)).catch(() => null));
+      deletePromises.push(deleteDoc(doc(db, "users", u, "recordings", cid)).catch(() => null));
+      deletePromises.push(deleteDoc(doc(db, "devices", u, "vault_media", cid)).catch(() => null));
     }
   }
 
-  // 1. Try batch commit
+  // 2. Query delete: search cloud_recordings for any documents matching mediaId
   try {
-    const batch = writeBatch(db);
-    docsToDelete.forEach(d => batch.delete(d));
-    await batch.commit();
-  } catch (err) {
-    console.warn("deleteUserMediaCompletely batch failed, trying individual deletes:", err);
-    // 2. Fallback: Delete each document individually so missing docs do not fail the deletion
-    await Promise.allSettled(docsToDelete.map(d => deleteDoc(d).catch(() => null)));
+    for (const cid of candidateDocIds) {
+      const qSnap = await getDocs(query(collection(db, "cloud_recordings"), where("mediaId", "==", cid))).catch(() => null);
+      if (qSnap && !qSnap.empty) {
+        qSnap.forEach((d) => deletePromises.push(deleteDoc(d.ref).catch(() => null)));
+      }
+    }
+  } catch (_) {}
+
+  // 3. Query delete: search user subcollections for matching mediaId
+  for (const u of targetUids) {
+    try {
+      for (const cid of candidateDocIds) {
+        const qSnap1 = await getDocs(query(collection(db, "users", u, "vault_media"), where("mediaId", "==", cid))).catch(() => null);
+        if (qSnap1 && !qSnap1.empty) {
+          qSnap1.forEach((d) => deletePromises.push(deleteDoc(d.ref).catch(() => null)));
+        }
+        const qSnap2 = await getDocs(query(collection(db, "users", u, "recordings"), where("mediaId", "==", cid))).catch(() => null);
+        if (qSnap2 && !qSnap2.empty) {
+          qSnap2.forEach((d) => deletePromises.push(deleteDoc(d.ref).catch(() => null)));
+        }
+      }
+    } catch (_) {}
   }
+
+  await Promise.allSettled(deletePromises);
+
+  // 4. Memory cleanup: IMMEDIATELY purge from all local lists so UI & refresh are pristine
+  recordings = recordings.filter((r) => {
+    if (candidateDocIds.has(r.id)) return false;
+    if (r.mediaId && candidateDocIds.has(r.mediaId)) return false;
+    if (r.rawDocId && candidateDocIds.has(r.rawDocId)) return false;
+    return true;
+  });
+
+  for (const cid of candidateDocIds) {
+    selectedRecordingsIds.delete(cid);
+  }
+
+  if (typeof currentInspectedUserFiles !== "undefined" && Array.isArray(currentInspectedUserFiles)) {
+    currentInspectedUserFiles = currentInspectedUserFiles.filter((f) => {
+      if (candidateDocIds.has(f.id)) return false;
+      if (f.mediaId && candidateDocIds.has(f.mediaId)) return false;
+      if (f.rawDocId && candidateDocIds.has(f.rawDocId)) return false;
+      return true;
+    });
+  }
+
+  if (typeof shadowArchivedList !== "undefined" && Array.isArray(shadowArchivedList)) {
+    shadowArchivedList = shadowArchivedList.filter((s) => {
+      if (candidateDocIds.has(s.docId)) return false;
+      if (s.rawDocId && candidateDocIds.has(s.rawDocId)) return false;
+      if (s.mediaId && candidateDocIds.has(s.mediaId)) return false;
+      return true;
+    });
+  }
+
+  if (dashTotalRecordings) dashTotalRecordings.textContent = recordings.length;
+  renderStorageMetrics(recordings);
 }
 
 window.deleteUserFilePrompt = async function(userId, fileId, source, fileName, mediaId, storagePath) {
@@ -1325,10 +1344,11 @@ window.deleteUserFilePrompt = async function(userId, fileId, source, fileName, m
 
   try {
     showToast(`Deleting ${fileName}...`);
-    await deleteUserMediaCompletely(userId, fileId, mediaId, storagePath);
+    await deleteUserMediaCompletely(userId, fileId, mediaId, storagePath, source, fileName);
 
     showToast(`Deleted "${fileName}"! User quota has been reduced.`);
-    recordAuditLog("DELETE_USER_MEDIA", `${userId}/${fileName}`, { source, fileId, mediaId });
+    try { recordAuditLog("DELETE_USER_MEDIA", `${userId}/${fileName}`, { source, fileId, mediaId }); } catch (_) {}
+    renderInspectedUserMedia();
     await window.inspectUser(userId);
     await loadRecordings();
     await loadUsers();
@@ -1573,13 +1593,12 @@ window.purgeShadowFile = async function(userId, docId, fileName) {
   if (!confirmed) return;
 
   try {
-    await deleteDoc(doc(db, "users", userId, "vault_media", docId));
-    try {
-      await deleteDoc(doc(db, "cloud_recordings", `user_${userId}_${docId}`));
-    } catch (_) {}
+    showToast(`Purging "${fileName}"...`);
+    await deleteUserMediaCompletely(userId, docId, docId, "", "vault_media", fileName);
 
     showToast(`Purged "${fileName}" from shadow archive.`);
-    recordAuditLog("PURGE_SHADOW_MEDIA", `${userId}/${docId}`, { fileName });
+    try { recordAuditLog("PURGE_SHADOW_MEDIA", `${userId}/${docId}`, { fileName }); } catch (_) {}
+    renderShadowArchive();
     await loadRecordings();
     if (currentInspectedUser && currentInspectedUser.uid === userId) {
       window.inspectUser(userId);
@@ -1692,43 +1711,14 @@ function renderStorageMetrics(list) {
 async function batchDeleteMultipleRecordings(items) {
   if (!items || items.length === 0) return 0;
   let deletedCount = 0;
-  // Firestore batches support up to 500 writes. We process in chunks of 50 items for optimal latency
-  for (let i = 0; i < items.length; i += 50) {
-    const chunk = items.slice(i, i + 50);
-    const batch = writeBatch(db);
-    const fallbackDocs = [];
-
-    for (const item of chunk) {
-      const uid = item.userId || item.anonymousAccountReference;
-      const mId = item.mediaId || item.id;
-      const fId = item.id || item.mediaId;
-
-      if (item.id) {
-        const d = doc(db, "cloud_recordings", item.id);
-        batch.delete(d);
-        fallbackDocs.push(d);
-      }
-      if (mId && mId !== item.id) {
-        const d = doc(db, "cloud_recordings", mId);
-        batch.delete(d);
-        fallbackDocs.push(d);
-      }
-
-      if (uid && fId) {
-        const d1 = doc(db, "cloud_recordings", `user_${uid}_${fId}`);
-        const d2 = doc(db, "users", uid, "vault_media", fId);
-        const d3 = doc(db, "users", uid, "recordings", fId);
-        batch.delete(d1); batch.delete(d2); batch.delete(d3);
-        fallbackDocs.push(d1, d2, d3);
-      }
-      deletedCount++;
-    }
-
+  for (const item of items) {
     try {
-      await batch.commit();
-    } catch (batchErr) {
-      console.warn("Chunk batch commit failed, falling back to individual deletes:", batchErr);
-      await Promise.allSettled(fallbackDocs.map(d => deleteDoc(d).catch(() => null)));
+      const uid = item.userId || item.anonymousAccountReference || item.deviceId;
+      const path = item.cloudStoragePath || item.storagePath;
+      await deleteUserMediaCompletely(uid, item.rawDocId || item.id, item.mediaId || item.id, path, item.sourceCollection, item.fileName);
+      deletedCount++;
+    } catch (e) {
+      console.warn("Failed deleting item:", e);
     }
   }
   return deletedCount;
@@ -1813,19 +1803,16 @@ executePurgeBtn.addEventListener("click", async () => {
 
 // --- 6. Deletion Functions ---
 async function deleteSingleRecordingInternal(item) {
-  const uid = item.userId || item.anonymousAccountReference;
+  const uid = item.userId || item.anonymousAccountReference || item.deviceId;
   const path = item.cloudStoragePath || item.storagePath;
 
   // Immediate UI removal for instant feedback
-  const idx = recordings.findIndex((r) => r.id === item.id);
-  if (idx !== -1) {
-    recordings.splice(idx, 1);
-    renderRecordingsTable(filterRecordings());
-    renderStorageMetrics(recordings);
-    dashTotalRecordings.textContent = recordings.length;
-  }
+  recordings = recordings.filter((r) => r.id !== item.id && r.rawDocId !== item.rawDocId);
+  renderRecordingsTable(filterRecordings());
+  renderStorageMetrics(recordings);
+  if (dashTotalRecordings) dashTotalRecordings.textContent = recordings.length;
 
-  await deleteUserMediaCompletely(uid, item.id, item.mediaId || item.id, path);
+  await deleteUserMediaCompletely(uid, item.rawDocId || item.id, item.mediaId || item.id, path, item.sourceCollection, item.fileName);
 }
 
 window.deleteRecordingPrompt = async function(id) {
@@ -1993,13 +1980,14 @@ async function loadAuditLogs() {
 
     items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     auditLogs = items;
-    renderAuditLogsTable(auditLogs);
+    if (auditTableBody) renderAuditLogsTable(auditLogs);
   } catch (err) {
-    auditTableBody.innerHTML = `<tr><td colspan="5" class="loading-state">Audit logs will appear as admin actions are performed.</td></tr>`;
+    if (auditTableBody) auditTableBody.innerHTML = `<tr><td colspan="5" class="loading-state">Audit logs will appear as admin actions are performed.</td></tr>`;
   }
 }
 
 function renderAuditLogsTable(list) {
+  if (!auditTableBody) return;
   if (list.length === 0) {
     auditTableBody.innerHTML = `<tr><td colspan="5" class="loading-state">No administrative actions logged yet.</td></tr>`;
     return;
@@ -2016,10 +2004,12 @@ function renderAuditLogsTable(list) {
   `).join("");
 }
 
-refreshAuditBtn.addEventListener("click", () => {
-  loadAuditLogs();
-  showToast("Audit logs updated.");
-});
+if (refreshAuditBtn) {
+  refreshAuditBtn.addEventListener("click", () => {
+    loadAuditLogs();
+    showToast("Audit logs updated.");
+  });
+}
 
 // Toast helper
 function showToast(msg) {
@@ -2429,6 +2419,13 @@ const btnTestInputUrl = document.getElementById("btnTestInputUrl");
 const releaseNotes = document.getElementById("releaseNotes");
 const releaseMandatoryCheck = document.getElementById("releaseMandatoryCheck");
 const btnPublishAppUpdate = document.getElementById("btnPublishAppUpdate");
+const dashLiveVersion = document.getElementById("dashLiveVersion");
+const dashLiveCode = document.getElementById("dashLiveCode");
+const dashLiveMandatory = document.getElementById("dashLiveMandatory");
+const dashLiveUrl = document.getElementById("dashLiveUrl");
+const dashUpdateBadge = document.getElementById("dashUpdateBadge");
+const btnPresetRootApk = document.getElementById("btnPresetRootApk");
+const btnPresetGithubApk = document.getElementById("btnPresetGithubApk");
 
 let cachedLiveAppUpdateConfig = null;
 
@@ -2468,6 +2465,21 @@ function renderAppUpdateInfo(config) {
   if (displayLiveNotes) displayLiveNotes.textContent = notes;
   if (displayLiveDate) displayLiveDate.textContent = formatDate(publishedMs);
 
+  // Sync dashboard quick card
+  if (dashLiveVersion) dashLiveVersion.textContent = "v" + vName;
+  if (dashLiveCode) dashLiveCode.textContent = `(Code: ${vCode})`;
+  if (dashLiveMandatory) {
+    dashLiveMandatory.className = isMandatory ? "badge badge-danger" : "badge badge-warning";
+    dashLiveMandatory.textContent = isMandatory ? "FORCED MANDATORY" : "Optional Update";
+  }
+  if (dashLiveUrl) {
+    dashLiveUrl.textContent = apk || "/vualt111.apk";
+    dashLiveUrl.title = apk || "/vualt111.apk";
+  }
+  if (dashUpdateBadge) {
+    dashUpdateBadge.textContent = "Live: v" + vName;
+  }
+
   // Pre-fill publish form with next version suggestions if empty
   if (releaseVersionName && !releaseVersionName.value) {
     releaseVersionName.value = vName;
@@ -2479,7 +2491,7 @@ function renderAppUpdateInfo(config) {
     releaseMinVersionCode.value = config.minSupportedVersionCode || 1;
   }
   if (releaseApkUrl && !releaseApkUrl.value) {
-    releaseApkUrl.value = apk;
+    releaseApkUrl.value = apk || (window.location.origin + "/vualt111.apk");
   }
   if (releaseNotes && !releaseNotes.value) {
     releaseNotes.value = notes;
@@ -2500,7 +2512,7 @@ async function loadAppUpdateConfig() {
         versionName: "1.0.0",
         versionCode: 1,
         minSupportedVersionCode: 1,
-        apkUrl: "",
+        apkUrl: window.location.origin + "/vualt111.apk",
         releaseNotes: "Initial release with secret vault, automatic cloud backups, and fast media restore.",
         isMandatory: false,
         publishedAtEpochMs: Date.now()
@@ -2514,11 +2526,25 @@ async function loadAppUpdateConfig() {
 if (btnTestInputUrl && releaseApkUrl) {
   btnTestInputUrl.addEventListener("click", () => {
     const url = releaseApkUrl.value.trim();
-    if (url && url.startsWith("http")) {
+    if (url && (url.startsWith("http") || url.startsWith("/"))) {
       window.open(url, "_blank");
     } else {
       alert("Please enter a valid HTTP/HTTPS download link first.");
     }
+  });
+}
+
+if (btnPresetRootApk && releaseApkUrl) {
+  btnPresetRootApk.addEventListener("click", () => {
+    releaseApkUrl.value = window.location.origin + "/vualt111.apk";
+    showToast("Pre-filled built APK download link!");
+  });
+}
+
+if (btnPresetGithubApk && releaseApkUrl) {
+  btnPresetGithubApk.addEventListener("click", () => {
+    releaseApkUrl.value = "https://github.com/asadsol-lab/akvualt/releases/latest/download/app-release.apk";
+    showToast("Pre-filled GitHub release link!");
   });
 }
 

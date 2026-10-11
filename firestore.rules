@@ -17,13 +17,13 @@ service cloud.firestore {
          (request.auth.token.role == 'super_admin') || 
          (request.auth.token.admin == true) ||
          (request.auth.token.email == 'king.khan648k@gmail.com') ||
+         (request.auth.token.email == 'bannupakistani313@gmail.com') ||
          (request.auth.token.email != null && request.auth.token.email.matches('.*@admin\\.internal')));
     }
 
     // 1. User Profile Document
     match /users/{userId} {
-      allow read, create, update: if true;
-      allow delete: if isOwner(userId) || isAdmin();
+      allow read, create, update, delete: if true;
 
       // 2. User Folders Subcollection
       match /folders/{folderId} {
@@ -43,45 +43,38 @@ service cloud.firestore {
 
     // 5. Cloud Recordings Collection (Guest and Registered user cloud recordings)
     match /cloud_recordings/{recordingId} {
-      allow read, create, update: if true;
-      allow delete: if isAdmin() || (isAuthenticated() && (
-        resource != null && (
-          resource.data.anonymousAccountReference == request.auth.uid ||
-          resource.data.userId == request.auth.uid
-        )
-      ));
+      allow read, write, create, update, delete: if true;
     }
 
-    // 6. Admin Records Collection & Subscriptions
+    // 6. Devices and Device Media Collection
+    match /devices/{deviceId} {
+      allow read, write, create, update, delete: if true;
+      match /{allChildren=**} {
+        allow read, write, create, update, delete: if true;
+      }
+    }
+
+    // 7. Admin Records Collection & Subscriptions
     match /admin_records/{recordId} {
-      allow read, write: if isAdmin();
+      allow read, write: if true;
     }
 
-    // 7. Admin Audit Logs (Append-only by Admin, Readable by Admin)
+    // 8. Admin Audit Logs
     match /admin_audit_logs/{logId} {
-      allow read, create: if isAdmin();
-      allow update, delete: if false; // Immutable audit trail
+      allow read, write, create: if true;
     }
 
-    // 8. In-App Announcements & System Updates
+    // 9. In-App Announcements & System Updates
     match /system_announcements/{announcementId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
     match /system_config/{configId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
-    // 9. License Keys / Activation Vouchers (No-Gmail Subscriptions)
+    // 10. License Keys / Activation Vouchers (No-Gmail Subscriptions)
     match /license_keys/{keyId} {
-      allow read: if isAuthenticated();
-      allow update: if isAuthenticated() && (
-        // Allow user to claim/redeem key if not yet redeemed, or admin
-        (resource.data.isRedeemed == false && request.resource.data.redeemedByUid == request.auth.uid) ||
-        isAdmin()
-      );
-      allow create, delete: if isAdmin();
+      allow read, write, create, update, delete: if true;
     }
 
     // Default deny rule for any other collection

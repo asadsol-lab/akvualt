@@ -329,7 +329,6 @@ fun AdminDashboardScreen(
                                             AdminTab.SUBSCRIPTIONS -> "Subscriptions"
                                             AdminTab.BACKUP_MONITOR -> "Backups"
                                             AdminTab.SECURITY_EVENTS -> "Security"
-                                            AdminTab.AUDIT_LOGS -> "Audit Logs"
                                             AdminTab.ABUSE_REPORTS -> "Abuse"
                                         }
                                     )
@@ -344,7 +343,6 @@ fun AdminDashboardScreen(
                                             AdminTab.SUBSCRIPTIONS -> Icons.Default.Payments
                                             AdminTab.BACKUP_MONITOR -> Icons.Default.CloudDone
                                             AdminTab.SECURITY_EVENTS -> Icons.Default.Security
-                                            AdminTab.AUDIT_LOGS -> Icons.Default.History
                                             AdminTab.ABUSE_REPORTS -> Icons.Default.Report
                                         },
                                         contentDescription = null,
@@ -401,10 +399,6 @@ fun AdminDashboardScreen(
                                 events = uiState.securityEvents,
                                 currentSeverity = uiState.securityFilterSeverity,
                                 onSelectSeverity = { sev -> viewModel.loadSecurityEvents(sev) }
-                            )
-
-                            AdminTab.AUDIT_LOGS -> AdminAuditLogsView(
-                                logs = uiState.auditLogs
                             )
 
                             AdminTab.ABUSE_REPORTS -> AdminAbuseReportsView(
