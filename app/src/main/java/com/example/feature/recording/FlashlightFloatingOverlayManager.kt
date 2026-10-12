@@ -745,34 +745,34 @@ object FlashlightFloatingOverlayManager {
 
                 FloatingButtonMode.RECORD_ONLY -> {
                     if (isRecording) {
-                        // Recording Active: Pulsing Crimson Red disc with bright white recording icon
-                        bg.setColor(Color.parseColor("#FFDC2626"))
-                        bg.setStroke((3 * density).toInt(), Color.parseColor("#FCA5A5"))
-                        iv.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_floating_record_on))
-                        iv.clearColorFilter()
+                        // Active: Amber active flashlight glow
+                        bg.setColor(Color.parseColor("#FFF59E0B"))
+                        bg.setStroke((3 * density).toInt(), Color.parseColor("#FEF08A"))
+                        iv.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_flashlight_on))
+                        iv.setColorFilter(Color.parseColor("#1E1E24"))
                     } else {
-                        // Recording Idle: Stealth obsidian disc with clean video camera icon
-                        bg.setColor(Color.parseColor("#E618181B"))
-                        bg.setStroke((2 * density).toInt(), Color.parseColor("#55EF4444")) // Subtle red tinted rim
-                        iv.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_floating_record_off))
-                        iv.setColorFilter(Color.parseColor("#F43F5E"))
+                        // Idle: Pure stealth dark disc with flashlight torch icon
+                        bg.setColor(Color.parseColor("#E61A1D24"))
+                        bg.setStroke((2 * density).toInt(), Color.parseColor("#44FFFFFF"))
+                        iv.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_flashlight_off))
+                        iv.setColorFilter(Color.parseColor("#E2E8F0"))
                     }
                 }
 
                 FloatingButtonMode.LIGHT_AND_RECORD -> {
                     val isActive = isTorchOn || isRecording
                     if (isActive) {
-                        // Dual Active: Intense Amber-Red circle with dual active icon
-                        bg.setColor(Color.parseColor("#FFD97706")) // Amber-Gold
-                        bg.setStroke((3 * density).toInt(), Color.parseColor("#EF4444")) // Red rim
-                        iv.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_floating_dual_on))
-                        iv.clearColorFilter()
+                        // Active: Glowing amber flashlight torch
+                        bg.setColor(Color.parseColor("#FFF59E0B"))
+                        bg.setStroke((3 * density).toInt(), Color.parseColor("#FEF08A"))
+                        iv.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_flashlight_on))
+                        iv.setColorFilter(Color.parseColor("#1E1E24"))
                     } else {
-                        // Dual Idle: Deep obsidian disc with dual badge icon
+                        // Idle: Pure stealth dark disc with flashlight torch icon
                         bg.setColor(Color.parseColor("#E61A1D24"))
-                        bg.setStroke((2 * density).toInt(), Color.parseColor("#66F59E0B")) // Amber rim
-                        iv.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_floating_dual_off))
-                        iv.clearColorFilter()
+                        bg.setStroke((2 * density).toInt(), Color.parseColor("#44FFFFFF"))
+                        iv.setImageDrawable(ContextCompat.getDrawable(ctx, R.drawable.ic_flashlight_off))
+                        iv.setColorFilter(Color.parseColor("#E2E8F0"))
                     }
                 }
             }

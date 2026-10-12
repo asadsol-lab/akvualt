@@ -719,24 +719,24 @@ fun SettingsScreen(
                         },
                         testTag = "settings_toggle_volume_stop_notification"
                     )
-
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-
-                    SettingsToggleCard(
-                        icon = Icons.Default.TouchApp,
-                        title = "Floating Camouflage Button",
-                        subtitle = "Display a versatile floating button on screen for instant camouflage & stealth actions",
-                        checked = isFloatingFlashlightEnabled,
-                        onCheckedChange = { isEnabled ->
-                            isFloatingFlashlightEnabled = isEnabled
-                            FlashlightFloatingOverlayManager.setFloatingButtonEnabled(context, isEnabled)
-                        },
-                        testTag = "settings_toggle_floating_flashlight"
-                    )
                 }
+
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+
+                SettingsToggleCard(
+                    icon = Icons.Default.TouchApp,
+                    title = "Floating Camouflage Button",
+                    subtitle = "Display a versatile floating button on screen for instant camouflage & stealth actions",
+                    checked = isFloatingFlashlightEnabled,
+                    onCheckedChange = { isEnabled ->
+                        isFloatingFlashlightEnabled = isEnabled
+                        FlashlightFloatingOverlayManager.setFloatingButtonEnabled(context, isEnabled)
+                    },
+                    testTag = "settings_toggle_floating_flashlight"
+                )
             }
 
             // Sub-cards for Recording Status if volume controls enabled
@@ -830,7 +830,7 @@ fun SettingsScreen(
                     }
                 }
 
-                // Locked Controls or Floating Flashlight Active Banner
+                // Locked Controls banner
                 if (isControlsLocked) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -874,14 +874,18 @@ fun SettingsScreen(
                             }
                         }
                     }
-                } else if (isFloatingFlashlightEnabled) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
+                }
+            }
+
+            // Floating Flashlight Active Banner & Configuration (shown whenever floating button is enabled)
+            if (isFloatingFlashlightEnabled && !isControlsLocked) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
@@ -1123,7 +1127,6 @@ fun SettingsScreen(
                         }
                     }
                 }
-            }
 
             // ==========================================
             // 2. SECURITY
