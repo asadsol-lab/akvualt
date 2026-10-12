@@ -19,7 +19,11 @@ object FlashlightManager {
 
     @Volatile
     var isTorchOn: Boolean = false
-        private set
+
+    fun updateTorchState(enabled: Boolean) {
+        isTorchOn = enabled
+        FlashlightFloatingOverlayManager.updateTorchVisual(enabled)
+    }
 
     private var registeredCallback = false
     private var cachedCameraId: String? = null

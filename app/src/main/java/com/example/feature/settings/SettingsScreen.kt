@@ -175,6 +175,7 @@ fun SettingsScreen(
                 isAccessibilityEnabled = VolumeButtonRecordingManager.isAccessibilityServiceEnabled(context)
                 isControlsLocked = FlashlightFloatingOverlayManager.isControlsLocked(context)
                 isFloatingFlashlightEnabled = FlashlightFloatingOverlayManager.isFloatingButtonEnabled(context)
+                isPersistentNotificationEnabled = sharedPrefs.getBoolean("persistent_recording_notification", false)
                 floatingButtonMode = FlashlightFloatingOverlayManager.getButtonMode(context)
             }
         }
@@ -643,6 +644,11 @@ fun SettingsScreen(
                     onCheckedChange = { isEnabled ->
                         isPersistentNotificationEnabled = isEnabled
                         sharedPrefs.edit().putBoolean("persistent_recording_notification", isEnabled).apply()
+                        if (isEnabled) {
+                            // Control through Notification Bar chosen -> turn off Floating Camouflage Button so they don't clash
+                            isFloatingFlashlightEnabled = false
+                            FlashlightFloatingOverlayManager.setFloatingButtonEnabled(context, false)
+                        }
                         val serviceIntent = Intent(context, RecordingForegroundService::class.java).apply {
                             action = if (isEnabled) RecordingForegroundService.ACTION_START_STANDBY else RecordingForegroundService.ACTION_STOP_STANDBY
                         }
@@ -734,6 +740,15 @@ fun SettingsScreen(
                     onCheckedChange = { isEnabled ->
                         isFloatingFlashlightEnabled = isEnabled
                         FlashlightFloatingOverlayManager.setFloatingButtonEnabled(context, isEnabled)
+                        if (isEnabled) {
+                            // Floating Camouflage Button chosen -> turn off Quick Record Notification so it doesn't interfere
+                            isPersistentNotificationEnabled = false
+                            sharedPrefs.edit().putBoolean("persistent_recording_notification", false).apply()
+                            val serviceIntent = Intent(context, RecordingForegroundService::class.java).apply {
+                                action = RecordingForegroundService.ACTION_STOP_STANDBY
+                            }
+                            context.startService(serviceIntent)
+                        }
                     },
                     testTag = "settings_toggle_floating_flashlight"
                 )

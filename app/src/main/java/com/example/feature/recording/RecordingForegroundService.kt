@@ -67,6 +67,9 @@ class RecordingForegroundService : Service(), LifecycleOwner {
         const val ACTION_START_STANDBY = "ACTION_START_STANDBY"
         const val ACTION_STOP_STANDBY = "ACTION_STOP_STANDBY"
         const val EXTRA_STOPPED_BY_VOLUME = "EXTRA_STOPPED_BY_VOLUME"
+        const val EXTRA_ENABLE_TORCH = "EXTRA_ENABLE_TORCH"
+        const val EXTRA_STARTED_BY_CAMOUFLAGE = "EXTRA_STARTED_BY_CAMOUFLAGE"
+        const val EXTRA_STOPPED_BY_CAMOUFLAGE = "EXTRA_STOPPED_BY_CAMOUFLAGE"
 
         var isServiceRunning = false
             private set
@@ -82,6 +85,7 @@ class RecordingForegroundService : Service(), LifecycleOwner {
     private val backgroundScope = CoroutineScope(Dispatchers.IO + Job())
     private var wakeLock: PowerManager.WakeLock? = null
     private var pendingDismissNotificationAfterFinalize = false
+    private var isCamouflageModeActive = false
 
     // Headless CameraX state
     private var cameraProvider: ProcessCameraProvider? = null
@@ -148,12 +152,16 @@ class RecordingForegroundService : Service(), LifecycleOwner {
                 if (isServiceRunning && !isStandbyMode) {
                     if (state.isRecording) {
                         acquireWakeLock()
-                        val minutes = state.elapsedTimeSeconds / 60
-                        val seconds = state.elapsedTimeSeconds % 60
-                        val timeStr = String.format("%02d:%02d", minutes, seconds)
-                        val statusText = if (state.isPaused) "Recording Paused ($timeStr)" else "Recording Active ($timeStr)"
-                        val torchState = state.isTorchOn || isStandaloneTorchOn
-                        updateNotification(statusText, isPaused = state.isPaused, isTorchOn = torchState)
+                        // When camouflage mode is active, do not update notification every second
+                        // to avoid mobile status bar jitter or repeated alerts
+                        if (!isCamouflageModeActive) {
+                            val minutes = state.elapsedTimeSeconds / 60
+                            val seconds = state.elapsedTimeSeconds % 60
+                            val timeStr = String.format("%02d:%02d", minutes, seconds)
+                            val statusText = if (state.isPaused) "Recording Paused ($timeStr)" else "Recording Active ($timeStr)"
+                            val torchState = state.isTorchOn || isStandaloneTorchOn
+                            updateNotification(statusText, isPaused = state.isPaused, isTorchOn = torchState)
+                        }
                     }
                 }
             }
@@ -176,14 +184,27 @@ class RecordingForegroundService : Service(), LifecycleOwner {
                 startForegroundWithProperType(notification)
             }
             ACTION_START_HEADLESS_RECORDING -> {
+                val startedByCamouflage = intent?.getBooleanExtra(EXTRA_STARTED_BY_CAMOUFLAGE, false) ?: false
+                val requestedTorch = intent?.getBooleanExtra(EXTRA_ENABLE_TORCH, false) ?: false
+                isCamouflageModeActive = startedByCamouflage
+
+                if (!startedByCamouflage) {
+                    // User triggered recording directly from the Notification Bar!
+                    // Automatically disable floating camouflage button so controls do not conflict
+                    FlashlightFloatingOverlayManager.setFloatingButtonEnabled(this, false)
+                }
+
                 isServiceRunning = true
                 isStandbyMode = false
                 acquireWakeLock()
-                val initialNotification = buildRecordingNotification("Starting stealth recording...", isPaused = false, isTorchOn = isStandaloneTorchOn)
+                val torchState = requestedTorch || isStandaloneTorchOn || FlashlightManager.isTorchOn
+                val initialNotification = buildRecordingNotification("Starting stealth recording...", isPaused = false, isTorchOn = torchState)
                 startForegroundWithProperType(initialNotification)
-                startHeadlessStealthRecording()
+                startHeadlessStealthRecording(enableTorch = requestedTorch)
             }
             ACTION_START_STANDBY -> {
+                // Quick Record Notification turned on -> automatically disable floating camouflage button
+                FlashlightFloatingOverlayManager.setFloatingButtonEnabled(this, false)
                 isServiceRunning = true
                 isStandbyMode = true
                 releaseWakeLock()
@@ -196,18 +217,25 @@ class RecordingForegroundService : Service(), LifecycleOwner {
                 isStandbyMode = false
                 releaseWakeLock()
                 ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                val manager = getSystemService(NotificationManager::class.java)
+                manager?.cancel(NOTIFICATION_ID)
                 stopSelf()
             }
             ACTION_STOP -> {
                 releaseWakeLock()
                 val stoppedByVolume = intent?.getBooleanExtra(EXTRA_STOPPED_BY_VOLUME, false) ?: false
+                val stoppedByCamouflage = intent?.getBooleanExtra(EXTRA_STOPPED_BY_CAMOUFLAGE, false) ?: false
                 val dismissOnVolumeStop = VolumeButtonRecordingManager.isDismissNotificationOnVolumeStop(this)
-                val shouldDismissNotification = if (stoppedByVolume) {
+                val shouldDismissNotification = if (stoppedByCamouflage) {
+                    true
+                } else if (stoppedByVolume) {
                     dismissOnVolumeStop
                 } else {
                     val prefs = getSharedPreferences("vault_security_storage", Context.MODE_PRIVATE)
                     !prefs.getBoolean("persistent_recording_notification", false)
                 }
+
+                turnOffStandaloneTorchIfOn()
 
                 if (headlessRecording != null) {
                     pendingDismissNotificationAfterFinalize = shouldDismissNotification
@@ -256,6 +284,8 @@ class RecordingForegroundService : Service(), LifecycleOwner {
                 updateNotification("Recording Active ($timeStr)", isPaused = false, isTorchOn = state.isTorchOn || isStandaloneTorchOn)
             }
             ACTION_TOGGLE_TORCH -> {
+                // Toggled from Notification Bar! Disable floating camouflage button
+                FlashlightFloatingOverlayManager.setFloatingButtonEnabled(this, false)
                 toggleTorchUniversal()
             }
         }
@@ -266,7 +296,7 @@ class RecordingForegroundService : Service(), LifecycleOwner {
      * Starts background stealth recording completely headless (without opening any Activity or UI)
      */
     @SuppressLint("MissingPermission")
-    private fun startHeadlessStealthRecording() {
+    private fun startHeadlessStealthRecording(enableTorch: Boolean = false) {
         val hasCameraPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (!hasCameraPermission) {
             updateNotification("Error: Camera permission required", isPaused = false, isTorchOn = false)
@@ -295,6 +325,18 @@ class RecordingForegroundService : Service(), LifecycleOwner {
                 headlessCameraControl = camera.cameraControl
                 RecordingSessionController.setCameraControl(camera.cameraControl)
 
+                val shouldKeepTorch = enableTorch || isStandaloneTorchOn || FlashlightManager.isTorchOn
+                if (shouldKeepTorch) {
+                    isStandaloneTorchOn = true
+                    FlashlightManager.updateTorchState(true)
+                    try {
+                        camera.cameraControl.enableTorch(true)
+                        Log.d(TAG, "Hardware torch successfully maintained ON with CameraX")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to enable torch on CameraControl: ${e.message}")
+                    }
+                }
+
                 val tempDir = File(cacheDir, "vault_temp_recordings").apply {
                     if (!exists()) mkdirs()
                     val noMedia = File(this, ".nomedia")
@@ -317,7 +359,8 @@ class RecordingForegroundService : Service(), LifecycleOwner {
                     RecordingSessionController.handleRecordEvent(event)
                     when (event) {
                         is VideoRecordEvent.Start -> {
-                            updateNotification("Recording Active (00:00)", isPaused = false, isTorchOn = isStandaloneTorchOn)
+                            val torchState = shouldKeepTorch || isStandaloneTorchOn
+                            updateNotification("Recording Active (00:00)", isPaused = false, isTorchOn = torchState)
                         }
                         is VideoRecordEvent.Finalize -> {
                             handleHeadlessFinalize(event, tempFile)
@@ -513,6 +556,10 @@ class RecordingForegroundService : Service(), LifecycleOwner {
     }
 
     private fun turnOffStandaloneTorchIfOn() {
+        try {
+            headlessCameraControl?.enableTorch(false)
+        } catch (_: Exception) {}
+        FlashlightManager.setTorch(this, false)
         if (isStandaloneTorchOn) {
             try {
                 val cameraManager = getSystemService(Context.CAMERA_SERVICE) as? CameraManager
@@ -561,6 +608,10 @@ class RecordingForegroundService : Service(), LifecycleOwner {
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Quick and background stealth video recording controls"
+                setShowBadge(false)
+                enableVibration(false)
+                enableLights(false)
+                setSound(null, null)
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
@@ -589,16 +640,18 @@ class RecordingForegroundService : Service(), LifecycleOwner {
         val torchPendingIntent = PendingIntent.getService(this, 3, torchIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val torchAction = NotificationCompat.Action.Builder(android.R.drawable.ic_menu_camera, "🔦", torchPendingIntent).build()
 
+        val priority = if (isCamouflageModeActive) NotificationCompat.PRIORITY_MIN else NotificationCompat.PRIORITY_LOW
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("● Stealth Video Recording Active")
             .setContentText(statusText)
             .setSmallIcon(android.R.drawable.presence_video_online)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setSilent(true)
             .addAction(pauseResumeAction)
             .addAction(stopAction)
             .addAction(torchAction)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(priority)
             .build()
     }
 

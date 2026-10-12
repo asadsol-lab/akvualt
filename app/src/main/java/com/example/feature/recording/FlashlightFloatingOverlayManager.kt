@@ -119,6 +119,13 @@ object FlashlightFloatingOverlayManager {
     fun setFloatingButtonEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_FLOATING_ENABLED, enabled).apply()
         if (enabled) {
+            // Dismiss standby notification from notification bar so controls do not conflict
+            val prefs = context.getSharedPreferences("vault_security_storage", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("persistent_recording_notification", false).apply()
+            val serviceIntent = Intent(context, RecordingForegroundService::class.java).apply {
+                action = RecordingForegroundService.ACTION_STOP_STANDBY
+            }
+            try { context.startService(serviceIntent) } catch (_: Exception) {}
             show(context)
         } else {
             hide()
@@ -658,7 +665,7 @@ object FlashlightFloatingOverlayManager {
             }
             vibrate(context, 70L)
             FlashlightManager.setTorch(context, true)
-            startStealthRecording(context)
+            startStealthRecording(context, enableTorch = true)
             Toast.makeText(context, "● Torch ON & Stealth recording started", Toast.LENGTH_SHORT).show()
         }
         updateVisual()
@@ -670,13 +677,15 @@ object FlashlightFloatingOverlayManager {
         return camera && audio
     }
 
-    private fun startStealthRecording(context: Context) {
+    private fun startStealthRecording(context: Context, enableTorch: Boolean = false) {
         val onScreen = VolumeButtonRecordingManager.onScreenStartRecording
         if (onScreen != null) {
             onScreen.invoke()
         } else {
             val serviceIntent = Intent(context, RecordingForegroundService::class.java).apply {
                 action = RecordingForegroundService.ACTION_START_HEADLESS_RECORDING
+                putExtra(RecordingForegroundService.EXTRA_ENABLE_TORCH, enableTorch)
+                putExtra(RecordingForegroundService.EXTRA_STARTED_BY_CAMOUFLAGE, true)
             }
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -700,6 +709,7 @@ object FlashlightFloatingOverlayManager {
         val serviceIntent = Intent(context, RecordingForegroundService::class.java).apply {
             action = RecordingForegroundService.ACTION_STOP
             putExtra(RecordingForegroundService.EXTRA_STOPPED_BY_VOLUME, true)
+            putExtra(RecordingForegroundService.EXTRA_STOPPED_BY_CAMOUFLAGE, true)
         }
         try {
             context.startService(serviceIntent)
