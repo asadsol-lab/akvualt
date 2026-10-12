@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Active Torch Beam Radiating -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M9,0.5L9,2 M4.5,1.5L5.5,3 M13.5,1.5L12.5,3"
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round" />
+    <!-- Flashlight Torch Body (Glowing Yellow/Amber) -->
+    <path
+        android:fillColor="#FEF08A"
+        android:pathData="M5,3.5h8l-1.5,4v11.5a1.5,1.5 0 0,1 -1.5,1.5h-2a1.5,1.5 0 0,1 -1.5,-1.5V7.5L5,3.5z" />
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M6,4.5h6v1.5h-6z" />
+    <!-- Active Recording Camera Badge (Right) -->
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M14,10a1.5,1.5 0 0,1 1.5,-1.5h4a1.5,1.5 0 0,1 1.5,1.5v6a1.5,1.5 0 0,1 -1.5,1.5h-4a1.5,1.5 0 0,1 -1.5,-1.5v-6z" />
+    <path
+        android:fillColor="#DC2626"
+        android:pathData="M21,11.5l2,-1.5v5l-2,-1.5v-2z" />
+    <!-- Glowing Mic / REC center dot -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M17.5,13m-1.2,0a1.2,1.2 0 1,0 2.4,0a1.2,1.2 0 1,0 -2.4,0" />
+</vector>

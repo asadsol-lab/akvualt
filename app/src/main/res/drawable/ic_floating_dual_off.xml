@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Flashlight Torch Body (Left/Center) -->
+    <path
+        android:fillColor="#E2E8F0"
+        android:pathData="M5,3h8l-1.5,4v12a1.5,1.5 0 0,1 -1.5,1.5h-2a1.5,1.5 0 0,1 -1.5,-1.5V7L5,3z" />
+    <path
+        android:fillColor="#94A3B8"
+        android:pathData="M6,4h6v1h-6z" />
+    <path
+        android:fillColor="#475569"
+        android:pathData="M8.5,9.5h1v3h-1z" />
+    <!-- Recording Camera Badge (Right) -->
+    <path
+        android:fillColor="#F87171"
+        android:pathData="M14,11a1.5,1.5 0 0,1 1.5,-1.5h4a1.5,1.5 0 0,1 1.5,1.5v6a1.5,1.5 0 0,1 -1.5,1.5h-4a1.5,1.5 0 0,1 -1.5,-1.5v-6z" />
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M21,12.5l2,-1.5v5l-2,-1.5v-2z" />
+    <!-- Audio Wave / Mic Indicator Dot -->
+    <path
+        android:fillColor="#FECACA"
+        android:pathData="M17.5,14m-1,0a1,1 0 1,0 2,0a1,1 0 1,0 -2,0" />
+</vector>

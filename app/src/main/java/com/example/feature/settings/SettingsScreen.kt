@@ -47,8 +47,15 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.VolumeDown
 import androidx.compose.material.icons.filled.VolumeUp
+import com.example.feature.recording.FlashlightFloatingOverlayManager
+import com.example.feature.recording.FloatingButtonMode
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -152,10 +159,13 @@ fun SettingsScreen(
         mutableStateOf(VolumeButtonRecordingManager.isAccessibilityServiceEnabled(context))
     }
     var isFloatingFlashlightEnabled by remember {
-        mutableStateOf(com.example.feature.recording.FlashlightFloatingOverlayManager.isFloatingButtonEnabled(context))
+        mutableStateOf(FlashlightFloatingOverlayManager.isFloatingButtonEnabled(context))
+    }
+    var floatingButtonMode by remember {
+        mutableStateOf(FlashlightFloatingOverlayManager.getButtonMode(context))
     }
     var isControlsLocked by remember {
-        mutableStateOf(com.example.feature.recording.FlashlightFloatingOverlayManager.isControlsLocked(context))
+        mutableStateOf(FlashlightFloatingOverlayManager.isControlsLocked(context))
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -163,8 +173,9 @@ fun SettingsScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 isAccessibilityEnabled = VolumeButtonRecordingManager.isAccessibilityServiceEnabled(context)
-                isControlsLocked = com.example.feature.recording.FlashlightFloatingOverlayManager.isControlsLocked(context)
-                isFloatingFlashlightEnabled = com.example.feature.recording.FlashlightFloatingOverlayManager.isFloatingButtonEnabled(context)
+                isControlsLocked = FlashlightFloatingOverlayManager.isControlsLocked(context)
+                isFloatingFlashlightEnabled = FlashlightFloatingOverlayManager.isFloatingButtonEnabled(context)
+                floatingButtonMode = FlashlightFloatingOverlayManager.getButtonMode(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -323,35 +334,84 @@ fun SettingsScreen(
     }
 
     if (showSetupGuideDialog) {
+        val brandGuide = remember { DeviceInstructionHelper.getBrandGuide(context) }
         AlertDialog(
             onDismissRequest = { showSetupGuideDialog = false },
             icon = {
                 Icon(
-                    imageVector = Icons.Default.HelpOutline,
+                    imageVector = Icons.Default.PhoneAndroid,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(32.dp)
                 )
             },
             title = {
-                Text(
-                    text = "Background Recording Setup",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Phone Setup Guide",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Tailored for your specific device",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             },
             text = {
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "To allow volume buttons to trigger recording when the app is closed or the screen is off, configure these 3 phone settings:",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    // Detected Device Banner Card
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.PhoneAndroid,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = brandGuide.deviceModelString,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "${brandGuide.brand.displayName} • ${brandGuide.androidVersionString}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Your device has been detected automatically. Follow these manufacturer-specific settings to guarantee background recording and camouflage work without interruption:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
 
+                    // 1. OEM Autostart Card
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -360,28 +420,31 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "1. Accessibility Service (Required)",
+                                text = brandGuide.autostartHeader,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "• Tap 'Open Accessibility Settings' below.\n• Look for 'Installed apps' or 'Downloaded services'.\n• Turn ON 'Stealth Volume Recording'.",
+                                text = brandGuide.autostartDetail,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedButton(
-                                onClick = { VolumeButtonRecordingManager.openAccessibilitySettings(context) },
+                                onClick = { DeviceInstructionHelper.openOemAutostartSettings(context) },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Open Accessibility Settings")
+                                Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Open Autostart / App Settings")
                             }
                         }
                     }
 
+                    // 2. Battery Optimization Card
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -390,28 +453,31 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "2. Battery Optimization (Unrestricted)",
+                                text = brandGuide.batteryHeader,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "• Tap 'Open Battery Settings' below.\n• Set Calculator Vault to 'Unrestricted' or 'Don't Optimize' so Android does not stop the background service.\n• Xiaomi/Vivo/Oppo: Also allow 'Autostart'.",
+                                text = brandGuide.batteryDetail,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedButton(
-                                onClick = { VolumeButtonRecordingManager.openBatteryOptimizationSettings(context) },
+                                onClick = { DeviceInstructionHelper.openBatterySettings(context) },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
+                                Icon(Icons.Default.BatteryChargingFull, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text("Open Battery Settings")
                             }
                         }
                     }
 
+                    // 3. Display Over Other Apps / Pop-ups
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -420,48 +486,92 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "3. Camera & Microphone Permissions",
+                                text = brandGuide.overlayHeader,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "• Ensure Camera and Microphone permissions are allowed at all times so video recording can start without showing permission dialogs.",
+                                text = brandGuide.overlayDetail,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedButton(
-                                onClick = { VolumeButtonRecordingManager.openAppDetailsSettings(context) },
+                                onClick = { DeviceInstructionHelper.openOverlaySettings(context) },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Open App Permissions")
+                                Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Open Overlay Settings")
                             }
                         }
                     }
 
+                    // 4. Accessibility Service Card
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "★ Pro Tip (Lock in Recent Apps):",
+                                text = "4. Accessibility Service (Required)",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "• Tap button below → Find 'Installed apps' or 'Downloaded services'.\n• Turn ON 'Stealth Volume Recording' so hardware keys trigger recording.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = { DeviceInstructionHelper.openAccessibilitySettings(context) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Open Accessibility Settings")
+                            }
+                        }
+                    }
+
+                    // 5. Recent Apps Lock Card
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "★ Keep Locked in Recent Apps:",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Open your phone's Recent Apps (multitasking screen), find Calculator Vault, and tap the Lock icon or swipe down to keep it in memory.",
+                                text = brandGuide.recentAppsLockTip,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    }
+
+                    if (brandGuide.extraNote != null) {
+                        Text(
+                            text = "ℹ ${brandGuide.extraNote}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
                     }
                 }
             },
@@ -616,13 +726,13 @@ fun SettingsScreen(
                     )
 
                     SettingsToggleCard(
-                        icon = Icons.Default.FlashlightOn,
-                        title = "Floating Torch Shortcut",
-                        subtitle = "Display a floating torch icon on screen that works as a real flashlight for disguise",
+                        icon = Icons.Default.TouchApp,
+                        title = "Floating Camouflage Button",
+                        subtitle = "Display a versatile floating button on screen for instant camouflage & stealth actions",
                         checked = isFloatingFlashlightEnabled,
                         onCheckedChange = { isEnabled ->
                             isFloatingFlashlightEnabled = isEnabled
-                            com.example.feature.recording.FlashlightFloatingOverlayManager.setFloatingButtonEnabled(context, isEnabled)
+                            FlashlightFloatingOverlayManager.setFloatingButtonEnabled(context, isEnabled)
                         },
                         testTag = "settings_toggle_floating_flashlight"
                     )
@@ -778,31 +888,237 @@ fun SettingsScreen(
                                     imageVector = Icons.Default.CheckCircle,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Torch Camouflage Active",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                                Column {
+                                    Text(
+                                        text = "Floating Camouflage Button Active",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Mode: ${floatingButtonMode.title}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
-                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "• Tap icon: Toggles phone Flashlight ON/OFF (acts as a real torch).\n• Long-press Volume DOWN: Instantly removes icon and locks controls.\n• Restore controls: Open Vault with your Master PIN.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Choose Button Action (1-Click Mode):",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            OutlinedButton(
-                                onClick = {
-                                    com.example.feature.recording.FlashlightFloatingOverlayManager.show(context)
-                                },
-                                modifier = Modifier.fillMaxWidth(),
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // Option 1: LIGHT_AND_RECORD
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        floatingButtonMode = FloatingButtonMode.LIGHT_AND_RECORD
+                                        FlashlightFloatingOverlayManager.setButtonMode(context, FloatingButtonMode.LIGHT_AND_RECORD)
+                                    },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (floatingButtonMode == FloatingButtonMode.LIGHT_AND_RECORD)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                                    else
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+                                ),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
-                                Text("Show / Position Torch Button")
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = (floatingButtonMode == FloatingButtonMode.LIGHT_AND_RECORD),
+                                        onClick = {
+                                            floatingButtonMode = FloatingButtonMode.LIGHT_AND_RECORD
+                                            FlashlightFloatingOverlayManager.setButtonMode(context, FloatingButtonMode.LIGHT_AND_RECORD)
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.FlashlightOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("+", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Icon(Icons.Default.Videocam, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Torch Light + Secret Record",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Text(
+                                            text = "1-Click toggles both Flashlight AND stealth background video+mic recording",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // Option 2: RECORD_ONLY
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        floatingButtonMode = FloatingButtonMode.RECORD_ONLY
+                                        FlashlightFloatingOverlayManager.setButtonMode(context, FloatingButtonMode.RECORD_ONLY)
+                                    },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (floatingButtonMode == FloatingButtonMode.RECORD_ONLY)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                                    else
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = (floatingButtonMode == FloatingButtonMode.RECORD_ONLY),
+                                        onClick = {
+                                            floatingButtonMode = FloatingButtonMode.RECORD_ONLY
+                                            FlashlightFloatingOverlayManager.setButtonMode(context, FloatingButtonMode.RECORD_ONLY)
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Videocam, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Icon(Icons.Default.Mic, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Secret Record Only (Video + Mic)",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Text(
+                                            text = "1-Click stealthily starts or stops background video with microphone",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // Option 3: TORCH_ONLY
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        floatingButtonMode = FloatingButtonMode.TORCH_ONLY
+                                        FlashlightFloatingOverlayManager.setButtonMode(context, FloatingButtonMode.TORCH_ONLY)
+                                    },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (floatingButtonMode == FloatingButtonMode.TORCH_ONLY)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                                    else
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = (floatingButtonMode == FloatingButtonMode.TORCH_ONLY),
+                                        onClick = {
+                                            floatingButtonMode = FloatingButtonMode.TORCH_ONLY
+                                            FlashlightFloatingOverlayManager.setButtonMode(context, FloatingButtonMode.TORCH_ONLY)
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.FlashlightOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Flashlight Torch Only",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Text(
+                                            text = "1-Click turns hardware flashlight On / Off (Classic camouflage disguise)",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // How to Remove / Gestures Note
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(
+                                        text = "★ How to Dismiss / Remove From Screen:",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "• Drop to Remove: Drag the button towards the bottom of screen and drop onto the red zone.\n• Long-Press on Icon: Press and hold for 0.7s to remove instantly.\n• Volume DOWN Long-press: Hides icon and locks controls until Vault PIN.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        FlashlightFloatingOverlayManager.setFloatingButtonEnabled(context, false)
+                                        isFloatingFlashlightEnabled = false
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.VisibilityOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Hide Button", style = MaterialTheme.typography.labelMedium)
+                                }
+                                Button(
+                                    onClick = {
+                                        FlashlightFloatingOverlayManager.show(context)
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.TouchApp, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Reposition / Show", style = MaterialTheme.typography.labelMedium)
+                                }
                             }
                         }
                     }
