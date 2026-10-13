@@ -321,15 +321,36 @@ fun AppNavigation(
         }
 
         // Global In-App Update Dialog
+        val inAppDownloadState by appContainer.appUpdateManager.downloadState.collectAsStateWithLifecycle()
         activeUpdateResult?.let { update ->
             AppUpdateDialog(
                 config = update.config,
                 isMandatory = update.isMandatory,
                 currentVersionName = update.currentVersionName,
-                onUpdateClick = {
-                    appContainer.appUpdateManager.openApkDownloadLink(context, update.config.apkUrl)
+                downloadState = inAppDownloadState,
+                onStartDownload = {
+                    coroutineScope.launch {
+                        appContainer.appUpdateManager.downloadAndInstallApk(
+                            context = context,
+                            apkUrl = update.config.apkUrl,
+                            versionName = update.config.versionName
+                        )
+                    }
+                },
+                onInstallNow = { apkFile ->
+                    appContainer.appUpdateManager.triggerApkInstallation(context, apkFile)
+                },
+                onRetryDownload = {
+                    coroutineScope.launch {
+                        appContainer.appUpdateManager.downloadAndInstallApk(
+                            context = context,
+                            apkUrl = update.config.apkUrl,
+                            versionName = update.config.versionName
+                        )
+                    }
                 },
                 onDismiss = {
+                    appContainer.appUpdateManager.resetDownloadState()
                     activeUpdateResult = null
                 }
             )
