@@ -8,6 +8,7 @@ import com.example.core.admin.AccountStatus
 import com.example.core.admin.AdminAnnouncement
 import com.example.core.admin.AdminAuditLogEntry
 import com.example.core.admin.AdminDashboardMetrics
+import com.example.core.admin.AdminLicenseKeyItem
 import com.example.core.admin.AdminPermission
 import com.example.core.admin.AdminRepository
 import com.example.core.admin.AdminUser
@@ -60,6 +61,9 @@ data class AdminUiState(
     val securityFilterSeverity: SecuritySeverity? = null,
     val auditLogs: List<AdminAuditLogEntry> = emptyList(),
     val abuseReports: List<AbuseSecurityReport> = emptyList(),
+    val licenseKeysList: List<AdminLicenseKeyItem> = emptyList(),
+    val newlyGeneratedKey: String? = null,
+    val isLicenseKeyLoading: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null,
     val userSearchQuery: String = ""
@@ -148,7 +152,10 @@ class AdminViewModel(
             AdminTab.APP_UPDATES -> loadAppUpdateConfig()
             AdminTab.ANNOUNCEMENTS -> loadAnnouncements()
             AdminTab.USERS -> loadUsers()
-            AdminTab.SUBSCRIPTIONS -> loadSubscriptions()
+            AdminTab.SUBSCRIPTIONS -> {
+                loadSubscriptions()
+                loadLicenseKeys()
+            }
             AdminTab.BACKUP_MONITOR -> loadBackupMetrics()
             AdminTab.SECURITY_EVENTS -> loadSecurityEvents()
             AdminTab.ABUSE_REPORTS -> loadAbuseReports()
@@ -165,6 +172,7 @@ class AdminViewModel(
         loadAnnouncements()
         loadUsers()
         loadSubscriptions()
+        loadLicenseKeys()
         loadBackupMetrics()
         loadSecurityEvents()
         loadAuditLogs()
@@ -527,6 +535,50 @@ class AdminViewModel(
 
     fun onClearSuccess() {
         _uiState.update { it.copy(successMessage = null) }
+    }
+
+    fun loadLicenseKeys() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLicenseKeyLoading = true) }
+            adminRepository.getLicenseKeys().onSuccess { keys ->
+                _uiState.update { it.copy(licenseKeysList = keys, isLicenseKeyLoading = false) }
+            }.onFailure { err ->
+                _uiState.update { it.copy(isLicenseKeyLoading = false, errorMessage = "Failed to load keys: ${err.message}") }
+            }
+        }
+    }
+
+    fun generateLicenseKey(planType: String, validityDays: Long, customerNote: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLicenseKeyLoading = true) }
+            adminRepository.generateLicenseKey(planType, validityDays, customerNote).onSuccess { key ->
+                _uiState.update {
+                    it.copy(
+                        isLicenseKeyLoading = false,
+                        newlyGeneratedKey = key,
+                        successMessage = "License Key $key generated successfully!"
+                    )
+                }
+                loadLicenseKeys()
+            }.onFailure { err ->
+                _uiState.update { it.copy(isLicenseKeyLoading = false, errorMessage = "Failed to generate key: ${err.message}") }
+            }
+        }
+    }
+
+    fun revokeLicenseKey(key: String, reason: String = "Revoked by admin") {
+        viewModelScope.launch {
+            adminRepository.revokeLicenseKey(key, reason).onSuccess {
+                _uiState.update { it.copy(successMessage = "License Key $key revoked.") }
+                loadLicenseKeys()
+            }.onFailure { err ->
+                _uiState.update { it.copy(errorMessage = "Failed to revoke key: ${err.message}") }
+            }
+        }
+    }
+
+    fun clearNewlyGeneratedKey() {
+        _uiState.update { it.copy(newlyGeneratedKey = null) }
     }
 
     class Factory(

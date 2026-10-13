@@ -99,6 +99,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        try {
+            val isPremium = appContainer.entitlementManager.isPremium.value ||
+                    com.example.core.subscription.LicenseKeyManager.isCachedPremium(this)
+            com.example.core.ads.AdMobManager.showAppOpenAdIfAvailable(this, isPremium)
+        } catch (_: Exception) {}
+    }
+
     override fun onStop() {
         super.onStop()
         // Immediate Auto-Lock: When user presses Home, locks phone, or switches apps,

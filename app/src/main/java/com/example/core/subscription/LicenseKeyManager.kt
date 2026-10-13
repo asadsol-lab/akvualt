@@ -63,12 +63,11 @@ object LicenseKeyManager {
 
             val now = System.currentTimeMillis()
 
-            // If already redeemed, verify if it belongs to this device/user (Restore flow)
+            // Single-Device Lock: If already redeemed, verify if it belongs to THIS hardware device (Restore flow)
             if (isRedeemed) {
-                val matchesUser = (redeemedByUid != null && redeemedByUid == uid) || 
-                                  (redeemedByDeviceId != null && redeemedByDeviceId == deviceId)
-                if (!matchesUser) {
-                    return@withContext Result.failure(IllegalStateException("This activation code is already redeemed on another device."))
+                val matchesThisDevice = (redeemedByDeviceId != null && redeemedByDeviceId == deviceId)
+                if (!matchesThisDevice) {
+                    return@withContext Result.failure(IllegalStateException("This activation key is already activated on another device. Each key (1-Month or Lifetime) is strictly locked to a single device and cannot be shared."))
                 }
             }
 

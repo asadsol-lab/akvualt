@@ -81,13 +81,22 @@ object VolumeButtonRecordingManager {
     }
 
     fun isEnabled(context: Context): Boolean {
+        if (!com.example.core.subscription.LicenseKeyManager.isCachedPremium(context)) {
+            return false
+        }
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_ENABLED, true)
+        return prefs.getBoolean(KEY_ENABLED, false)
     }
 
-    fun setEnabled(context: Context, enabled: Boolean) {
+    fun setEnabled(context: Context, enabled: Boolean): Boolean {
+        if (enabled && !com.example.core.subscription.LicenseKeyManager.isCachedPremium(context)) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().putBoolean(KEY_ENABLED, false).apply()
+            return false
+        }
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()
+        return true
     }
 
     fun isDismissNotificationOnVolumeStop(context: Context): Boolean {

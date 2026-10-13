@@ -27,10 +27,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import com.example.core.admin.AdminLicenseKeyItem
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudDownload
@@ -107,6 +113,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.core.admin.AbuseSecurityReport
@@ -388,7 +395,12 @@ fun AdminDashboardScreen(
                             )
 
                             AdminTab.SUBSCRIPTIONS -> AdminSubscriptionsView(
-                                subscriptions = uiState.subscriptionsList
+                                subscriptions = uiState.subscriptionsList,
+                                licenseKeys = uiState.licenseKeysList,
+                                newlyGeneratedKey = uiState.newlyGeneratedKey,
+                                onGenerateKey = { plan, days, note -> viewModel.generateLicenseKey(plan, days, note) },
+                                onRevokeKey = { key -> viewModel.revokeLicenseKey(key) },
+                                onClearNewKey = { viewModel.clearNewlyGeneratedKey() }
                             )
 
                             AdminTab.BACKUP_MONITOR -> uiState.backupMetrics?.let { bMetrics ->
@@ -1236,25 +1248,338 @@ private fun DetailRow(label: String, value: String) {
 }
 
 @Composable
-private fun AdminSubscriptionsView(subscriptions: List<SubscriptionMonitoringItem>) {
-    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+private fun AdminSubscriptionsView(
+    subscriptions: List<SubscriptionMonitoringItem>,
+    licenseKeys: List<AdminLicenseKeyItem> = emptyList(),
+    newlyGeneratedKey: String? = null,
+    onGenerateKey: (planType: String, validityDays: Long, customerNote: String) -> Unit = { _, _, _ -> },
+    onRevokeKey: (key: String) -> Unit = {},
+    onClearNewKey: () -> Unit = {}
+) {
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
+    val clipboardManager = LocalClipboardManager.current
+    var showGenerateDialog by remember { mutableStateOf(false) }
+    var selectedPlanType by remember { mutableStateOf("MONTHLY") }
+    var customerNoteInput by remember { mutableStateOf("") }
+
+    // Dialog showing newly generated key with 1-tap Copy
+    if (newlyGeneratedKey != null) {
+        AlertDialog(
+            onDismissRequest = onClearNewKey,
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Key,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "New Key Generated!",
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Send this activation code to the customer. When activated, it will be strictly locked to their single device:",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = newlyGeneratedKey,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(14.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(newlyGeneratedKey))
+                        onClearNewKey()
+                    }
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Copy Key & Close")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onClearNewKey) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    // Dialog to generate key
+    if (showGenerateDialog) {
+        AlertDialog(
+            onDismissRequest = { showGenerateDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text("Generate License Key", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Select plan duration. Key will lock to 1 device upon activation:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Plan selection
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedPlanType == "MONTHLY",
+                            onClick = { selectedPlanType = "MONTHLY" },
+                            label = { Text("1-Month (30d)") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = selectedPlanType == "LIFETIME",
+                            onClick = { selectedPlanType = "LIFETIME" },
+                            label = { Text("Lifetime VIP") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = customerNoteInput,
+                        onValueChange = { customerNoteInput = it },
+                        label = { Text("Customer Note (Optional)") },
+                        placeholder = { Text("e.g. GPay screenshot verified") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val days = if (selectedPlanType == "MONTHLY") 30L else 99999L
+                        onGenerateKey(selectedPlanType, days, customerNoteInput.trim())
+                        customerNoteInput = ""
+                        showGenerateDialog = false
+                    }
+                ) {
+                    Text("Generate Key")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGenerateDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("admin_subscriptions_view"),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // Section 1: License Key Management & Generation
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "VIP License Keys",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "1-Month & Lifetime Single-Device Vouchers",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Button(
+                            onClick = { showGenerateDialog = true },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("New Key")
+                        }
+                    }
+                }
+            }
+        }
+
+        // License Keys List Header
         item {
             Text(
-                text = "Subscription Monitoring & Verification",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                text = "Issued License Keys (${licenseKeys.size})",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
         }
+
+        if (licenseKeys.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Text(
+                        text = "No license keys issued yet. Tap 'New Key' to generate a 1-Month or Lifetime key for a customer after receiving their GPay screenshot.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            items(licenseKeys) { keyItem ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Key,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = keyItem.key,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            // Status Badge
+                            val (badgeBg, badgeText, statusLabel) = when {
+                                keyItem.status.equals("REVOKED", ignoreCase = true) ->
+                                    Triple(Color(0xFFFFEBEE), Color(0xFFC62828), "REVOKED")
+                                keyItem.isRedeemed ->
+                                    Triple(Color(0xFFE3F2FD), Color(0xFF1565C0), "BOUND TO 1 DEVICE")
+                                else ->
+                                    Triple(Color(0xFFE8F5E9), Color(0xFF2E7D32), "READY / UNUSED")
+                            }
+                            Surface(color = badgeBg, shape = RoundedCornerShape(4.dp)) {
+                                Text(
+                                    text = statusLabel,
+                                    color = badgeText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        DetailRow("Plan Type", if (keyItem.planType == "MONTHLY") "1-Month (30 Days)" else "Lifetime VIP Access")
+                        DetailRow("Created On", dateFormat.format(Date(keyItem.createdAtEpochMs)))
+
+                        if (keyItem.isRedeemed) {
+                            DetailRow("Locked Device ID", keyItem.redeemedByDeviceId ?: "Unknown Device")
+                            keyItem.deviceModel?.let { DetailRow("Device Model", it) }
+                            keyItem.redeemedAtEpochMs?.let { DetailRow("Redeemed At", dateFormat.format(Date(it))) }
+                            if (keyItem.planType != "LIFETIME") {
+                                keyItem.expiresAtEpochMs?.let { DetailRow("Expires At", dateFormat.format(Date(it))) }
+                            }
+                        }
+                        if (keyItem.customerNote.isNotBlank()) {
+                            DetailRow("Note", keyItem.customerNote)
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(keyItem.key))
+                                }
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Copy Key")
+                            }
+                            if (!keyItem.status.equals("REVOKED", ignoreCase = true)) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                TextButton(
+                                    onClick = { onRevokeKey(keyItem.key) },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                ) {
+                                    Text("Revoke")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section 2: Google Play Subscriptions Header
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Google Play Store Subscriptions (${subscriptions.size})",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
         items(subscriptions) { sub ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Row(

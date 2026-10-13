@@ -17,8 +17,16 @@ class VaultApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         initFirebase()
+        initAdMob()
         registerAppInstallAndHeartbeat()
         initBackgroundSync()
+    }
+
+    private fun initAdMob() {
+        try {
+            com.example.core.ads.AdMobManager.init(this)
+            com.example.core.ads.AdMobManager.loadAppOpenAd(this)
+        } catch (_: Exception) {}
     }
 
     private fun registerAppInstallAndHeartbeat() {

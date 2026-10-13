@@ -87,6 +87,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -167,14 +168,25 @@ fun SettingsScreen(
     var isControlsLocked by remember {
         mutableStateOf(FlashlightFloatingOverlayManager.isControlsLocked(context))
     }
+    var showPremiumLockDialog by remember { mutableStateOf<String?>(null) }
+    val effectiveIsPremium = isPremium || com.example.core.subscription.LicenseKeyManager.isCachedPremium(context)
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
+                val isPrem = isPremium || com.example.core.subscription.LicenseKeyManager.isCachedPremium(context)
+                if (!isPrem) {
+                    isVolumeControlsEnabled = false
+                    isFloatingFlashlightEnabled = false
+                    VolumeButtonRecordingManager.setEnabled(context, false)
+                    FlashlightFloatingOverlayManager.setFloatingButtonEnabled(context, false)
+                } else {
+                    isVolumeControlsEnabled = VolumeButtonRecordingManager.isEnabled(context)
+                    isFloatingFlashlightEnabled = FlashlightFloatingOverlayManager.isFloatingButtonEnabled(context)
+                }
                 isAccessibilityEnabled = VolumeButtonRecordingManager.isAccessibilityServiceEnabled(context)
                 isControlsLocked = FlashlightFloatingOverlayManager.isControlsLocked(context)
-                isFloatingFlashlightEnabled = FlashlightFloatingOverlayManager.isFloatingButtonEnabled(context)
                 isPersistentNotificationEnabled = sharedPrefs.getBoolean("persistent_recording_notification", false)
                 floatingButtonMode = FlashlightFloatingOverlayManager.getButtonMode(context)
             }
@@ -584,6 +596,49 @@ fun SettingsScreen(
         )
     }
 
+    if (showPremiumLockDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showPremiumLockDialog = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "${showPremiumLockDialog} is Locked",
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Text(
+                    text = "${showPremiumLockDialog} is an exclusive Premium VIP feature.\n\nFree users cannot activate hardware volume recording or floating camouflage button. Upgrade to Premium or redeem an admin activation key to unlock!",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showPremiumLockDialog = null
+                        onNavigateToPremium()
+                    }
+                ) {
+                    Text("Get Premium / Enter Key")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPremiumLockDialog = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -671,18 +726,23 @@ fun SettingsScreen(
                 )
 
                 SettingsToggleCard(
-                    icon = Icons.Default.Tune,
+                    icon = if (!effectiveIsPremium) Icons.Default.Lock else Icons.Default.Tune,
                     title = "Volume Button Recording",
-                    subtitle = "Press phone hardware volume buttons to secretly start or stop video recording",
-                    checked = isVolumeControlsEnabled,
+                    subtitle = if (!effectiveIsPremium) "PRO Feature • Locked for Free Users. Tap to unlock." else "Press phone hardware volume buttons to secretly start or stop video recording",
+                    trailingBadge = if (!effectiveIsPremium) "PRO" else null,
+                    checked = if (effectiveIsPremium) isVolumeControlsEnabled else false,
                     onCheckedChange = { isEnabled ->
-                        isVolumeControlsEnabled = isEnabled
-                        VolumeButtonRecordingManager.setEnabled(context, isEnabled)
+                        if (!effectiveIsPremium) {
+                            showPremiumLockDialog = "Volume Button Secret Recording"
+                        } else {
+                            isVolumeControlsEnabled = isEnabled
+                            VolumeButtonRecordingManager.setEnabled(context, isEnabled)
+                        }
                     },
                     testTag = "settings_toggle_volume_controls"
                 )
 
-                if (isVolumeControlsEnabled) {
+                if (effectiveIsPremium && isVolumeControlsEnabled) {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -733,21 +793,26 @@ fun SettingsScreen(
                 )
 
                 SettingsToggleCard(
-                    icon = Icons.Default.TouchApp,
+                    icon = if (!effectiveIsPremium) Icons.Default.Lock else Icons.Default.TouchApp,
                     title = "Floating Camouflage Button",
-                    subtitle = "Display a versatile floating button on screen for instant camouflage & stealth actions",
-                    checked = isFloatingFlashlightEnabled,
+                    subtitle = if (!effectiveIsPremium) "PRO Feature • Locked for Free Users. Tap to unlock." else "Display a versatile floating button on screen for instant camouflage & stealth actions",
+                    trailingBadge = if (!effectiveIsPremium) "PRO" else null,
+                    checked = if (effectiveIsPremium) isFloatingFlashlightEnabled else false,
                     onCheckedChange = { isEnabled ->
-                        isFloatingFlashlightEnabled = isEnabled
-                        FlashlightFloatingOverlayManager.setFloatingButtonEnabled(context, isEnabled)
-                        if (isEnabled) {
-                            // Floating Camouflage Button chosen -> turn off Quick Record Notification so it doesn't interfere
-                            isPersistentNotificationEnabled = false
-                            sharedPrefs.edit().putBoolean("persistent_recording_notification", false).apply()
-                            val serviceIntent = Intent(context, RecordingForegroundService::class.java).apply {
-                                action = RecordingForegroundService.ACTION_STOP_STANDBY
+                        if (!effectiveIsPremium) {
+                            showPremiumLockDialog = "Floating Camouflage Button"
+                        } else {
+                            isFloatingFlashlightEnabled = isEnabled
+                            FlashlightFloatingOverlayManager.setFloatingButtonEnabled(context, isEnabled)
+                            if (isEnabled) {
+                                // Floating Camouflage Button chosen -> turn off Quick Record Notification so it doesn't interfere
+                                isPersistentNotificationEnabled = false
+                                sharedPrefs.edit().putBoolean("persistent_recording_notification", false).apply()
+                                val serviceIntent = Intent(context, RecordingForegroundService::class.java).apply {
+                                    action = RecordingForegroundService.ACTION_STOP_STANDBY
+                                }
+                                context.startService(serviceIntent)
                             }
-                            context.startService(serviceIntent)
                         }
                     },
                     testTag = "settings_toggle_floating_flashlight"
@@ -755,7 +820,7 @@ fun SettingsScreen(
             }
 
             // Sub-cards for Recording Status if volume controls enabled
-            if (isVolumeControlsEnabled) {
+            if (effectiveIsPremium && isVolumeControlsEnabled) {
                 // Background Service Status Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -892,8 +957,8 @@ fun SettingsScreen(
                 }
             }
 
-            // Floating Flashlight Active Banner & Configuration (shown whenever floating button is enabled)
-            if (isFloatingFlashlightEnabled && !isControlsLocked) {
+            // Floating Flashlight Active Banner & Configuration (shown whenever floating button is enabled and user is premium)
+            if (effectiveIsPremium && isFloatingFlashlightEnabled && !isControlsLocked) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -1358,7 +1423,8 @@ private fun SettingsToggleCard(
     subtitle: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    testTag: String
+    testTag: String,
+    trailingBadge: String? = null
 ) {
     Row(
         modifier = Modifier
@@ -1386,12 +1452,29 @@ private fun SettingsToggleCard(
         Spacer(modifier = Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (trailingBadge != null) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = trailingBadge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,

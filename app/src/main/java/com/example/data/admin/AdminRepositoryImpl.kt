@@ -5,6 +5,7 @@ import com.example.core.admin.AccountStatus
 import com.example.core.admin.AdminAnnouncement
 import com.example.core.admin.AdminAuditLogEntry
 import com.example.core.admin.AdminDashboardMetrics
+import com.example.core.admin.AdminLicenseKeyItem
 import com.example.core.admin.AdminPermission
 import com.example.core.admin.AdminRepository
 import com.example.core.admin.AdminUser
@@ -920,6 +921,86 @@ class AdminRepositoryImpl(
                     TargetAudience.SPECIFIC_USER -> !userId.isNullOrBlank() && item.targetUserId == userId
                 }
             }
+        }
+    }
+
+    override suspend fun generateLicenseKey(
+        planType: String,
+        validityDays: Long,
+        customerNote: String
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val firestore = firestoreProvider() ?: throw IllegalStateException("Firestore service unavailable.")
+            val randomPart = java.util.UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
+            val prefix = if (planType.equals("MONTHLY", ignoreCase = true)) "VAULT-MTH" else "VAULT-LIFE"
+            val key = "$prefix-${randomPart.take(4)}-${randomPart.takeLast(4)}"
+            val now = System.currentTimeMillis()
+
+            val doc = mapOf(
+                "key" to key,
+                "planType" to planType.uppercase(),
+                "validityDays" to validityDays,
+                "isRedeemed" to false,
+                "status" to "ACTIVE",
+                "createdAt" to now,
+                "customerNote" to customerNote
+            )
+            firestore.collection("license_keys").document(key).set(doc).await()
+            key
+        }
+    }
+
+    override suspend fun getLicenseKeys(limit: Int): Result<List<AdminLicenseKeyItem>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val firestore = firestoreProvider() ?: throw IllegalStateException("Firestore service unavailable.")
+            val snap = firestore.collection("license_keys")
+                .limit(limit.toLong())
+                .get()
+                .await()
+
+            snap.documents.mapNotNull { doc ->
+                val key = doc.id
+                val plan = doc.getString("planType") ?: "LIFETIME"
+                val days = doc.getLong("validityDays") ?: if (plan == "MONTHLY") 30L else 99999L
+                val isRedeemed = doc.getBoolean("isRedeemed") == true
+                val deviceId = doc.getString("redeemedByDeviceId")
+                val uid = doc.getString("redeemedByUid")
+                val model = doc.getString("deviceModel")
+                val created = doc.getLong("createdAt") ?: 0L
+                val redeemedAt = doc.getLong("redeemedAt")
+                val expiresAt = doc.getLong("expiresAt")
+                val status = doc.getString("status") ?: if (isRedeemed) "REDEEMED" else "ACTIVE"
+                val note = doc.getString("customerNote") ?: ""
+
+                AdminLicenseKeyItem(
+                    key = key,
+                    planType = plan,
+                    validityDays = days,
+                    isRedeemed = isRedeemed,
+                    redeemedByDeviceId = deviceId,
+                    redeemedByUid = uid,
+                    deviceModel = model,
+                    createdAtEpochMs = created,
+                    redeemedAtEpochMs = redeemedAt,
+                    expiresAtEpochMs = expiresAt,
+                    status = status,
+                    customerNote = note
+                )
+            }.sortedByDescending { it.createdAtEpochMs }
+        }
+    }
+
+    override suspend fun revokeLicenseKey(key: String, reason: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val firestore = firestoreProvider() ?: throw IllegalStateException("Firestore service unavailable.")
+            firestore.collection("license_keys").document(key).update(
+                mapOf(
+                    "status" to "REVOKED",
+                    "revokedAt" to System.currentTimeMillis(),
+                    "revokeReason" to reason
+                )
+            ).await()
+            Unit
         }
     }
 }

@@ -51,7 +51,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.OutlinedTextField
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import com.example.feature.backup.AnonymousCloudBackupManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -218,7 +228,147 @@ fun PremiumScreen(
                 }
             }
 
-            // License Key Redemption Card (No-Gmail Premium Activation)
+            // 5. Google Pay (GPay) & Direct Admin Payment Card
+            val deviceId = remember { AnonymousCloudBackupManager.getDeviceId(context) }
+            val clipboardManager = LocalClipboardManager.current
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Payments,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Pay via GPay & Get License Key",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Text(
+                        text = "Pay using Google Pay (GPay / UPI) or direct transfer, send the screenshot to Admin, and receive your 1-Month or Lifetime License Key:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    // Pricing options summary
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text("1-Month VIP", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                                Text("Rs. 299 / $1.99", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                Text("30 Days Access", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text("Lifetime VIP", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                                Text("Rs. 999 / $6.99", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                Text("Permanent Access", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    // Device ID Display
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Your Device ID (Strict 1-Device Lock):", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(deviceId, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            }
+                            IconButton(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(deviceId))
+                                    Toast.makeText(context, "Device ID copied!", Toast.LENGTH_SHORT).show()
+                                }
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Device ID", modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+
+                    // GPay Action Buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val upiUri = Uri.parse("upi://pay?pa=king.khan648k@gmail.com&pn=Vault%20Premium&cu=INR")
+                                val intent = Intent(Intent.ACTION_VIEW, upiUri)
+                                try {
+                                    context.startActivity(Intent.createChooser(intent, "Pay via GPay / UPI App"))
+                                } catch (_: Exception) {
+                                    clipboardManager.setText(AnnotatedString("king.khan648k@gmail.com"))
+                                    Toast.makeText(context, "GPay ID copied: king.khan648k@gmail.com", Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Pay with GPay", fontSize = 13.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                val shareIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = Uri.parse("mailto:king.khan648k@gmail.com")
+                                    putExtra(Intent.EXTRA_SUBJECT, "Vault Premium Payment Screenshot")
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        "Hello Admin,\n\nI have completed the payment via GPay for Calculator Vault Premium.\nPlease find my payment screenshot attached.\n\nMy Device ID: $deviceId\n\nPlease send me my activation key."
+                                    )
+                                }
+                                try {
+                                    context.startActivity(Intent.createChooser(shareIntent, "Send Screenshot to Admin"))
+                                } catch (_: Exception) {
+                                    Toast.makeText(context, "Email: king.khan648k@gmail.com", Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Send Proof", fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+
+            // 6. License Key Redemption Card (Strict Single-Device Protection)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -237,13 +387,13 @@ fun PremiumScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Redeem Activation Code (No Gmail)",
+                            text = "Redeem License Key",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
                     }
                     Text(
-                        text = "Purchased via WhatsApp, EasyPaisa, or Admin? Enter your key to activate Monthly, Yearly, or Lifetime access. Remains safe even if app is uninstalled.",
+                        text = "Enter your 1-Month or Lifetime key received from Admin. Important: Each key is strictly locked to 1 device upon activation and cannot be used on another device.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -252,7 +402,7 @@ fun PremiumScreen(
                     OutlinedTextField(
                         value = licenseCodeInput,
                         onValueChange = { licenseCodeInput = it.uppercase().trim() },
-                        label = { Text("Enter License Key (e.g. VAULT-LIFE-XXXX)") },
+                        label = { Text("Enter License Key (e.g. VAULT-MTH-XXXX or VAULT-LIFE-XXXX)") },
                         placeholder = { Text("VAULT-XXXX-XXXX") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()

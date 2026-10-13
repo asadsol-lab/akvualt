@@ -24,6 +24,7 @@ local.properties
 !app-keystore.jks
 *.keystore
 debug.keystore
+debug.keystore.base64
 my-upload-key.jks
 
 # Secrets / Environment variables (SENSITIVE)

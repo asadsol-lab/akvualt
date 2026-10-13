@@ -113,10 +113,18 @@ object FlashlightFloatingOverlayManager {
     }
 
     fun isFloatingButtonEnabled(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_FLOATING_ENABLED, true)
+        if (!com.example.core.subscription.LicenseKeyManager.isCachedPremium(context)) {
+            return false
+        }
+        return getPrefs(context).getBoolean(KEY_FLOATING_ENABLED, false)
     }
 
-    fun setFloatingButtonEnabled(context: Context, enabled: Boolean) {
+    fun setFloatingButtonEnabled(context: Context, enabled: Boolean): Boolean {
+        if (enabled && !com.example.core.subscription.LicenseKeyManager.isCachedPremium(context)) {
+            getPrefs(context).edit().putBoolean(KEY_FLOATING_ENABLED, false).apply()
+            hide()
+            return false
+        }
         getPrefs(context).edit().putBoolean(KEY_FLOATING_ENABLED, enabled).apply()
         if (enabled) {
             // Dismiss standby notification from notification bar so controls do not conflict
@@ -130,6 +138,7 @@ object FlashlightFloatingOverlayManager {
         } else {
             hide()
         }
+        return true
     }
 
     fun getButtonMode(context: Context): FloatingButtonMode {

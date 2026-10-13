@@ -42,5 +42,10 @@ interface AdminRepository {
     suspend fun createAnnouncement(announcement: AdminAnnouncement): Result<Unit>
     suspend fun deleteAnnouncement(announcementId: String): Result<Unit>
     suspend fun getActiveAnnouncementsForUser(userId: String?, isPremium: Boolean): Result<List<AdminAnnouncement>>
+
+    // License Keys & Vouchers Management
+    suspend fun generateLicenseKey(planType: String, validityDays: Long, customerNote: String = ""): Result<String>
+    suspend fun getLicenseKeys(limit: Int = 50): Result<List<AdminLicenseKeyItem>>
+    suspend fun revokeLicenseKey(key: String, reason: String): Result<Unit>
 }
 

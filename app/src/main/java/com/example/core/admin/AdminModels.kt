@@ -226,3 +226,18 @@ data class AdminAnnouncement(
     val isDismissible: Boolean = true
 )
 
+data class AdminLicenseKeyItem(
+    val key: String,
+    val planType: String = "LIFETIME", // "MONTHLY" or "LIFETIME"
+    val validityDays: Long = 99999L,
+    val isRedeemed: Boolean = false,
+    val redeemedByDeviceId: String? = null,
+    val redeemedByUid: String? = null,
+    val deviceModel: String? = null,
+    val createdAtEpochMs: Long = System.currentTimeMillis(),
+    val redeemedAtEpochMs: Long? = null,
+    val expiresAtEpochMs: Long? = null,
+    val status: String = "ACTIVE", // "ACTIVE", "REDEEMED", "REVOKED"
+    val customerNote: String = ""
+)
+
