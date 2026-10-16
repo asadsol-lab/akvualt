@@ -15,10 +15,11 @@ android {
 
   defaultConfig {
     applicationId = "sleath.cam.pro"
-    minSdk = 24
+    minSdk = 23
     targetSdk = 35
-    versionCode = 11
-    versionName = "3.0"
+    versionCode = 12
+    versionName = "3.1"
+    multiDexEnabled = true
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
