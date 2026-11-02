@@ -33,6 +33,7 @@ android {
       keyPassword = System.getenv("KEY_PASSWORD") ?: "654321"
       enableV1Signing = true
       enableV2Signing = true
+      enableV3Signing = true
     }
   }
 

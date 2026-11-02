@@ -127,6 +127,7 @@ fun SettingsScreen(
         mutableStateOf(sharedPrefs.getBoolean("vault_panic_pin_is_set", false))
     }
     var showPanicPinDialog by remember { mutableStateOf(false) }
+    var showChangePinDialog by remember { mutableStateOf(false) }
 
     var isPersistentNotificationEnabled by remember {
         mutableStateOf(sharedPrefs.getBoolean("persistent_recording_notification", false))
@@ -229,6 +230,34 @@ fun SettingsScreen(
                 }
             },
             onDismiss = { showPanicPinDialog = false }
+        )
+    }
+
+    if (showChangePinDialog) {
+        com.example.feature.vault.ChangePinDialog(
+            onChangePin = { currentPin, newPin, _ ->
+                coroutineScope.launch {
+                    val secRepo = securityRepository
+                    if (secRepo != null) {
+                        val res = secRepo.changePin(currentPin, newPin)
+                        when (res) {
+                            is com.example.core.model.SecurityResult.Success -> {
+                                Toast.makeText(context, "Vault PIN changed successfully!", Toast.LENGTH_SHORT).show()
+                                showChangePinDialog = false
+                            }
+                            is com.example.core.model.SecurityResult.Error -> {
+                                Toast.makeText(context, res.message, Toast.LENGTH_SHORT).show()
+                            }
+                            else -> {
+                                Toast.makeText(context, "Failed to change PIN", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } else {
+                        Toast.makeText(context, "Security repository not available", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
+            onDismiss = { showChangePinDialog = false }
         )
     }
 
@@ -1218,7 +1247,7 @@ fun SettingsScreen(
                     title = "Change Vault PIN",
                     subtitle = "Update your secret calculator unlock code",
                     testTag = "settings_item_change_pin",
-                    onClick = onChangePinRequested
+                    onClick = { showChangePinDialog = true }
                 )
 
                 HorizontalDivider(

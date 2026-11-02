@@ -239,7 +239,7 @@ fun AppNavigation(
                         navController.navigate(AppDestinations.USER_GUIDE)
                     },
                     onChangePinRequested = {
-                        navController.navigate(AppDestinations.VAULT)
+                        // Handled internally in SettingsScreen via ChangePinDialog
                     }
                 )
             }

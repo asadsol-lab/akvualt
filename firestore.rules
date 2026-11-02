@@ -23,58 +23,89 @@ service cloud.firestore {
 
     // 1. User Profile Document
     match /users/{userId} {
-      allow read, create, update, delete: if true;
+      allow read, write: if isOwner(userId) || isAdmin();
 
       // 2. User Folders Subcollection
       match /folders/{folderId} {
-        allow read, write, create, update, delete: if true;
+        allow read, write: if isOwner(userId) || isAdmin();
       }
 
       // 3. User Vault Media Metadata Subcollection
       match /vault_media/{mediaId} {
-        allow read, write, create, update, delete: if true;
+        allow read, write: if isOwner(userId) || isAdmin();
       }
 
       // 4. User Recordings Metadata Subcollection
       match /recordings/{recordingId} {
-        allow read, write, create, update, delete: if true;
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
     // 5. Cloud Recordings Collection (Guest and Registered user cloud recordings)
     match /cloud_recordings/{recordingId} {
-      allow read, write, create, update, delete: if true;
+      allow read: if isAdmin() || (
+        isAuthenticated() && (
+          resource.data.userId == request.auth.uid || 
+          resource.data.ownerId == request.auth.uid ||
+          resource.data.anonymousAccountReference == request.auth.uid
+        )
+      );
+      allow create: if isAdmin() || (
+        isAuthenticated() && (
+          request.resource.data.userId == request.auth.uid ||
+          request.resource.data.ownerId == request.auth.uid ||
+          request.resource.data.anonymousAccountReference == request.auth.uid
+        )
+      );
+      allow update, delete: if isAdmin() || (
+        isAuthenticated() && (
+          resource.data.userId == request.auth.uid || 
+          resource.data.ownerId == request.auth.uid ||
+          resource.data.anonymousAccountReference == request.auth.uid
+        )
+      );
     }
 
     // 6. Devices and Device Media Collection
     match /devices/{deviceId} {
-      allow read, write, create, update, delete: if true;
+      allow read, write: if isAuthenticated() || isAdmin();
       match /{allChildren=**} {
-        allow read, write, create, update, delete: if true;
+        allow read, write: if isAuthenticated() || isAdmin();
       }
     }
 
     // 7. Admin Records Collection & Subscriptions
     match /admin_records/{recordId} {
-      allow read, write: if true;
+      allow read, write: if isAdmin();
     }
 
     // 8. Admin Audit Logs
     match /admin_audit_logs/{logId} {
-      allow read, write, create: if true;
+      allow read, write, create: if isAdmin();
     }
 
     // 9. In-App Announcements & System Updates
     match /system_announcements/{announcementId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
     match /system_config/{configId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // 10. License Keys / Activation Vouchers (No-Gmail Subscriptions)
     match /license_keys/{keyId} {
-      allow read, write, create, update, delete: if true;
+      // Allow single key verification and redemption, but prevent unauthorized users from listing/scraping all keys
+      allow get: if true;
+      allow list: if isAdmin();
+      allow update: if isAdmin() || (
+        isAuthenticated() && (
+          resource.data.isRedeemed != true || 
+          resource.data.redeemedByUid == request.auth.uid
+        )
+      );
+      allow create, delete: if isAdmin();
     }
 
     // Default deny rule for any other collection

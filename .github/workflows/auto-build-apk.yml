@@ -10,6 +10,7 @@ on:
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradlew'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
@@ -40,10 +41,16 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Prepare APK Asset
+        id: prep
         run: |
           mkdir -p release-output
+          BUILD_NUM="${{ github.run_number }}"
+          TAG_NAME="v3.1.${BUILD_NUM}"
           cp app/build/outputs/apk/release/app-release.apk release-output/vualt111.apk
-          echo "APK prepared successfully: $(ls -lh release-output/vualt111.apk)"
+          cp app/build/outputs/apk/release/app-release.apk release-output/CalculatorVault-v3.1.apk
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "build_num=${BUILD_NUM}" >> $GITHUB_OUTPUT
+          echo "APK prepared: $(ls -lh release-output)"
 
       - name: Upload APK to Actions Artifacts
         uses: actions/upload-artifact@v4
@@ -52,18 +59,41 @@ jobs:
           path: release-output/vualt111.apk
           retention-days: 30
 
-      - name: Update GitHub Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        if: github.repository == 'bannukings123lab/Vualt-app-Ready' || github.repository == 'asadsol-lab/akvualt'
         with:
-          tag_name: latest
-          name: "Latest Auto-Build Release"
+          tag_name: ${{ steps.prep.outputs.tag_name }}
+          name: "Calculator Vault v3.1 (Build ${{ steps.prep.outputs.build_num }})"
           body: |
-            Automated build from commit ${{ github.sha }}
-            Branch: ${{ github.ref_name }}
-            Date: ${{ github.event.head_commit.timestamp }}
+            ## Calculator Vault v3.1 (Build ${{ steps.prep.outputs.build_num }})
+            - **Commit:** ${{ github.sha }}
+            - **Branch:** ${{ github.ref_name }}
+            - **Built on:** ${{ github.event.head_commit.timestamp }}
+            
+            ### Included Assets:
+            - `vualt111.apk` (Direct production release APK)
+            - `CalculatorVault-v3.1.apk`
+            
+            *Automated Release pruning active: Keeps only the latest 3 releases to preserve storage.*
           draft: false
           prerelease: false
-          files: release-output/vualt111.apk
+          files: |
+            release-output/vualt111.apk
+            release-output/CalculatorVault-v3.1.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prune Old Releases (Keep Latest 3)
+        run: |
+          echo "Pruning older releases, keeping top 3 newest..."
+          OLD_TAGS=$(gh release list --limit 100 --json tagName,createdAt --jq 'sort_by(.createdAt) | reverse | .[3:] | .[].tagName')
+          if [ -n "$OLD_TAGS" ]; then
+            for tag in $OLD_TAGS; do
+              echo "Deleting old release and tag: $tag"
+              gh release delete "$tag" --yes --cleanup-tag || true
+            done
+          else
+            echo "Release count is 3 or less. Nothing to delete."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

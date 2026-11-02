@@ -22,19 +22,19 @@ service firebase.storage {
 
     // Guest recordings storage path: guest_recordings/{userId}/{fileName}
     match /guest_recordings/{userId}/{allPaths=**} {
-      allow read, write: if true;
+      allow read, write: if isOwner(userId) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
     }
 
     // Legacy and device recordings path: recordings/{deviceId}/{fileName}
     match /recordings/{deviceId}/{allPaths=**} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated() || isAdmin();
       allow delete: if isAdmin();
     }
 
     // User private backups: users/{userId}/{allPaths=**}
     match /users/{userId}/{allPaths=**} {
-      allow read, write: if true;
+      allow read, write: if isOwner(userId) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
     }
   }
