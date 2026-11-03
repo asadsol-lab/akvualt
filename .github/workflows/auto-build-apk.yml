@@ -44,42 +44,42 @@ jobs:
         id: prep
         run: |
           mkdir -p release-output
+          VERSION_NAME=$(grep 'versionName =' app/build.gradle.kts | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
           BUILD_NUM="${{ github.run_number }}"
-          TAG_NAME="v3.1.${BUILD_NUM}"
-          cp app/build/outputs/apk/release/app-release.apk release-output/vualt111.apk
-          cp app/build/outputs/apk/release/app-release.apk release-output/CalculatorVault-v3.1.apk
+          TAG_NAME="v${VERSION_NAME}.${BUILD_NUM}"
+          APK_FILE="CalculatorVault-v${VERSION_NAME}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "release-output/${APK_FILE}"
           echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
           echo "build_num=${BUILD_NUM}" >> $GITHUB_OUTPUT
-          echo "APK prepared: $(ls -lh release-output)"
+          echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
+          echo "apk_file=${APK_FILE}" >> $GITHUB_OUTPUT
+          echo "Single APK prepared: $(ls -lh release-output)"
 
       - name: Upload APK to Actions Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: vualt111-release-apk
-          path: release-output/vualt111.apk
+          name: CalculatorVault-v${{ steps.prep.outputs.version_name }}-apk
+          path: release-output/${{ steps.prep.outputs.apk_file }}
           retention-days: 30
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.prep.outputs.tag_name }}
-          name: "Calculator Vault v3.1 (Build ${{ steps.prep.outputs.build_num }})"
+          name: "Calculator Vault v${{ steps.prep.outputs.version_name }} (Build ${{ steps.prep.outputs.build_num }})"
           body: |
-            ## Calculator Vault v3.1 (Build ${{ steps.prep.outputs.build_num }})
+            ## Calculator Vault v${{ steps.prep.outputs.version_name }} (Build ${{ steps.prep.outputs.build_num }})
             - **Commit:** ${{ github.sha }}
             - **Branch:** ${{ github.ref_name }}
             - **Built on:** ${{ github.event.head_commit.timestamp }}
             
-            ### Included Assets:
-            - `vualt111.apk` (Direct production release APK)
-            - `CalculatorVault-v3.1.apk`
+            ### Included Asset:
+            - `${{ steps.prep.outputs.apk_file }}`
             
             *Automated Release pruning active: Keeps only the latest 3 releases to preserve storage.*
           draft: false
           prerelease: false
-          files: |
-            release-output/vualt111.apk
-            release-output/CalculatorVault-v3.1.apk
+          files: release-output/${{ steps.prep.outputs.apk_file }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
